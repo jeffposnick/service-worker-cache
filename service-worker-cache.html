@@ -36,9 +36,93 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 
       serviceWorker: null,
 
+      _sendMessage: function(payload) {
+        return new Promise(function(resolve, reject) {
+          if (this.serviceWorker) {
+            var messageChannel = new MessageChannel();
+            messageChannel.port1.onmessage = function(e) {
+              console.log('onmessage; data is', e.data);
+              resolve(e);
+            };
+
+            payload.port = messageChannel.port2;
+            this.serviceWorker.postMessage(payload, [messageChannel.port2]);
+          } else {
+            reject(Error('The service worker isn\'t ready yet.'))
+          }
+        });
+      },
+
+      /**
+       * The `service-worker-cache-status` event is fired to indicate the cache status of a given relative URL.
+       *
+       * @event service-worker-cache-status
+       * @param {Object} detail
+       *   @param {string} detail.relativeUrl The relative URL of the resource.
+       *   @param {bool} detail.cached `true` is the resource is cached, and `false` otherwise.
+       */
+
+      /**
+       * The `cache` method caches a resource identified by its relative URL.
+       *
+       * It will fire a `service-worker-cache-status` event when complete.
+       *
+       * @method cache
+       * @param {string} relativeUrl The URL, relative to `this.scope`, to be cached.
+       */
+      cache: function(relativeUrl) {
+        this._sendMessage({
+          command: 'cache',
+          relativeUrl: relativeUrl
+        }).then(function(e) {
+          this.fire('service-worker-cache-status', e.data);
+        });
+      },
+
+      /**
+       * The `uncache` method removes from the cache a resource identified by its relative URL.
+       *
+       * It will fire a `service-worker-cache-status` event when complete.
+       *
+       * @method uncache
+       * @param {string} relativeUrl The URL, relative to `this.scope`, to be removed from the cache.
+       */
+      uncache: function(relativeUrl) {
+        this._sendMessage({
+          command: 'uncache',
+          relativeUrl: relativeUrl
+        }).then(function(e) {
+          this.fire('service-worker-cache-status', e.data);
+        });
+      },
+
+      /**
+       * The `status` method determines whether a given resource, indentified by its relative URL, is already cached.
+       *
+       * It will fire a `service-worker-cache-status` event when complete.
+       *
+       * @method status
+       * @param {string} relativeUrl The URL, relative to `this.scope`, to be looked up.
+       */
+      status: function(relativeUrl) {
+        this._sendMessage({
+          command: 'status',
+          relativeUrl: relativeUrl
+        }).then(function(e) {
+          this.fire('service-worker-cache-status', e.data);
+        });
+      },
+
+      /**
+       * The `service-worker-cache-ready` event is fired to indicate that the service worker has been initialized.
+       *
+       * @event service-worker-cache-ready
+       */
+
       ready: function() {
         navigator.serviceWorker.register('service-worker.js', { scope: this.scope }).then(function(serviceWorker) {
           this.serviceWorker = serviceWorker;
+          this.fire('service-worker-cache-ready');
         });
       }
     });

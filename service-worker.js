@@ -16,7 +16,7 @@ function fullUrl(relativeUrl) {
 
 self.addEventListener('install', function(e) {
   var preCache = [
-    'file1.txt'
+    // TODO: Find a way to pass in a list of URLs from the main element.
   ];
   log('oninstall; preCache is', preCache);
 
@@ -66,7 +66,7 @@ self.addEventListener('message', function(e) {
   log('onmessage; event is', e);
 
   caches.get(CACHE_PREFIX + self.version).then(function(cache) {
-    var url = fullUrl(e.data.file);
+    var url = fullUrl(e.data.relativeUrl);
     switch(e.data.command) {
       case 'status':
         // TODO: There's clearly a much better way of doing this.
@@ -79,7 +79,7 @@ self.addEventListener('message', function(e) {
           }
 
           e.data.port.postMessage({
-            file: e.data.file,
+            relativeUrl: e.data.relativeUrl,
             cached: cached
           });
         });
@@ -88,7 +88,7 @@ self.addEventListener('message', function(e) {
       case 'cache':
         cache.add(url).then(function() {
           e.data.port.postMessage({
-            file: e.data.file,
+            relativeUrl: e.data.relativeUrl,
             cached: true
           });
         });
@@ -97,7 +97,7 @@ self.addEventListener('message', function(e) {
       case 'uncache':
         cache.delete(url).then(function() {
           e.data.port.postMessage({
-            file: e.data.file,
+            relativeUrl: e.data.relativeUrl,
             cached: false
           });
         });
