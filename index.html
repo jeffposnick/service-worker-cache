@@ -8,16 +8,16 @@ Code distributed by Google as part of the polymer project is also
 subject to an additional IP rights grant found at http://polymer.github.io/PATENTS
 -->
 <html>
-<head>
-  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
-  <script src="../platform/platform.js"></script>
-  <link rel="import" href="../polymer/polymer.html">
-  <link rel="import" href="../core-component-page/core-component-page.html">
-
-</head>
-<body unresolved>
-
-  <core-component-page></core-component-page>
-
-</body>
+  <head>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+    <script src="../platform/platform.js"></script>
+    <link rel="import" href="../polymer/polymer.html">
+    <link rel="import" href="../core-component-page/core-component-page.html">
+  </head>
+  <body unresolved>
+    <core-component-page
+      moduleName="service-worker-cache"
+      sources='["service-worker-cache.html", "service-worker-cacheable-resource.html"]'>
+    </core-component-page>
+  </body>
 </html>

@@ -14,6 +14,7 @@
   ],
   "dependencies": {
     "polymer": "Polymer/polymer#~0.3.4",
-    "polymer-test-tools": "Polymer/polymer-test-tools#~0.3.3"
+    "polymer-test-tools": "Polymer/polymer-test-tools#~0.3.3",
+    "core-signals": "Polymer/core-signals#~0.3.4"
   }
 }

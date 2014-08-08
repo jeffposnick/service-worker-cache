@@ -1,4 +1,5 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../core-signals/core-signals.html">
 
 <!--
 An experimental Polymer element that simplifies Service Worker-based caching.
@@ -18,9 +19,18 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cache" attributes="scope">
+<polymer-element name="service-worker-cache" attributes="scope initialized">
   <template>
+    <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
+                  on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
+                  on-core-signal-service-worker-status-request="{{handleStatusRequest}}">
+    </core-signals>
 
+    <template if="{{ unsupported }}">
+      <h3>Your browser doesn't support service workers!</h3>
+      Try again using <a href="https://www.google.com/chrome/browser/canary.html">Google Chrome Canary</a>
+      with <a href="chrome://flags/#enable-experimental-web-platform-features">experimental web features</a> enabled.
+    </template>
   </template>
 
   <script>
@@ -28,13 +38,32 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
       /**
        * The `scope` corresponds to the paths that the service worker handles.
        *
+       * *(Note that scope restrictions seem a bit buggy at the moment.)*
+       *
+       * Defaults to `./`.
+       *
        * @property scope
        * @type string
        * @default './'
        */
       scope: './',
 
+      /**
+       * Whether the service worker is `initialized` or not.
+       *
+       * Provided as an alternative to listening for the `service-worker-cache-initialized` event,
+       * to allow for `<template if="{{ initialized }}">` on your host page.
+       *
+       * Defaults to `false`.
+       *
+       * @property initialized
+       * @type bool
+       * @default false
+       */
+      initialized: false,
+
       serviceWorker: null,
+      unsupported: false,
 
       _sendMessage: function(payload) {
         return new Promise(function(resolve, reject) {
@@ -48,15 +77,16 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
             payload.port = messageChannel.port2;
             this.serviceWorker.postMessage(payload, [messageChannel.port2]);
           } else {
+            // TODO: Queue up messages and send when ready.
             reject(Error('The service worker isn\'t ready yet.'))
           }
-        });
+        }.bind(this));
       },
 
       /**
-       * The `service-worker-cache-status` event is fired to indicate the cache status of a given relative URL.
+       * The `service-worker-response` `<core-signal>` is fired to indicate the cache status of a given relative URL.
        *
-       * @event service-worker-cache-status
+       * @event core-signal-service-worker-response
        * @param {Object} detail
        *   @param {string} detail.relativeUrl The relative URL of the resource.
        *   @param {bool} detail.cached `true` is the resource is cached, and `false` otherwise.
@@ -65,24 +95,25 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
       /**
        * The `cache` method caches a resource identified by its relative URL.
        *
-       * It will fire a `service-worker-cache-status` event when complete.
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
        *
        * @method cache
        * @param {string} relativeUrl The URL, relative to `this.scope`, to be cached.
        */
       cache: function(relativeUrl) {
+        console.log('cache', relativeUrl);
         this._sendMessage({
           command: 'cache',
           relativeUrl: relativeUrl
         }).then(function(e) {
-          this.fire('service-worker-cache-status', e.data);
-        });
+          this._fireResponseSignal(e.data);
+        }.bind(this));
       },
 
       /**
        * The `uncache` method removes from the cache a resource identified by its relative URL.
        *
-       * It will fire a `service-worker-cache-status` event when complete.
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
        *
        * @method uncache
        * @param {string} relativeUrl The URL, relative to `this.scope`, to be removed from the cache.
@@ -92,14 +123,14 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
           command: 'uncache',
           relativeUrl: relativeUrl
         }).then(function(e) {
-          this.fire('service-worker-cache-status', e.data);
-        });
+          this._fireResponseSignal(e.data);
+        }.bind(this));
       },
 
       /**
        * The `status` method determines whether a given resource, indentified by its relative URL, is already cached.
        *
-       * It will fire a `service-worker-cache-status` event when complete.
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
        *
        * @method status
        * @param {string} relativeUrl The URL, relative to `this.scope`, to be looked up.
@@ -109,21 +140,46 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
           command: 'status',
           relativeUrl: relativeUrl
         }).then(function(e) {
-          this.fire('service-worker-cache-status', e.data);
+          this._fireResponseSignal(e.data);
+        }.bind(this));
+      },
+
+      _fireResponseSignal: function(data) {
+        this.asyncFire('core-signal', {
+          name: 'service-worker-response',
+          data: data
         });
       },
 
+      handleCacheRequest: function(e) {
+        this.cache(e.detail);
+      },
+
+      handleUncacheRequest: function(e) {
+        this.uncache(e.detail);
+      },
+
+      handleStatusRequest: function(e) {
+        this.status(e.detail);
+      },
+
       /**
-       * The `service-worker-cache-ready` event is fired to indicate that the service worker has been initialized.
+       * The `service-worker-cache-initialized` event is fired to indicate that the service worker has been initialized.
        *
-       * @event service-worker-cache-ready
+       * @event service-worker-cache-initialized
        */
 
       ready: function() {
-        navigator.serviceWorker.register('service-worker.js', { scope: this.scope }).then(function(serviceWorker) {
-          this.serviceWorker = serviceWorker;
-          this.fire('service-worker-cache-ready');
-        });
+        if ('serviceWorker' in navigator) {
+          var that = this;
+          navigator.serviceWorker.register('service-worker.js', { scope: this.scope }).then(function(serviceWorker) {
+            that.serviceWorker = serviceWorker;
+            that.asyncFire('service-worker-cache-initialized');
+            that.initialized = true;
+          });
+        } else {
+          this.unsupported = true;
+        }
       }
     });
   </script>

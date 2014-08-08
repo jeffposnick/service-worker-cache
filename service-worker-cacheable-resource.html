@@ -1,0 +1,110 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../core-signals/core-signals.html">
+
+<!--
+An experimental Polymer element represents a cachable resource, to be used in conjunction with a `<service-worker-cache>`.
+
+You can learn more about service workers at https://github.com/slightlyoff/ServiceWorker/
+
+Currently, this requires Google Chrome canary with the experimental web features flag turned on.
+
+You can learn more about browser support at https://jakearchibald.github.io/isserviceworkerready/
+
+##### Example
+
+    <service-worker-cachable-resource relativeUrl="path/to/file"></service-worker-cachable-resource>
+
+@element service-worker-cachable-resource
+@blurb An experimental Polymer element represents a cachable resource.
+@status alpha
+@homepage http://jeffposnick.github.io/service-worker-cache
+-->
+<polymer-element name="service-worker-cacheable-resource" attributes="relativeUrl cached auto">
+  <template>
+    <core-signals on-core-signal-service-worker-response="{{handleServiceWorkerResponse}}"></core-signals>
+  </template>
+
+  <script>
+    Polymer('service-worker-cacheable-resource', {
+      /**
+       * The `relativeUrl` of the resource to cache. This attribute is required.
+       *
+       * @property relativeUrl
+       * @type string
+       */
+      relativeUrl: '',
+
+      /**
+       * Indicates whether the resource is currently present in the cache.
+       *
+       * @property cached
+       * @type bool
+       * @default false
+       */
+      cached: false,
+
+      /**
+       * Indicates whether the resource is automatically cached.
+       *
+       * If set to `false`, the resource can be manually cached via the `cache()` method.
+       *
+       * Defaults to `true`.
+       *
+       * @property auto
+       * @type bool
+       * @default true
+       */
+      auto: true,
+
+      relativeUrlChanged: function() {
+        if (this.auto) {
+          this.cache();
+        } else {
+          this.status();
+        }
+      },
+
+      _fireSignal: function(signalName) {
+        if (this.relativeUrl) {
+          this.asyncFire('core-signal', {
+            name: signalName,
+            data: this.relativeUrl
+          });
+        }
+      },
+
+      /**
+       * The `cache` method caches the resource identified by the `relativeUrl` property.
+       *
+       * @method cache
+       */
+      cache: function() {
+        this._fireSignal('service-worker-cache-request');
+      },
+
+      /**
+       * The `uncache` method removes the resource identified by the `relativeUrl` property from the cache.
+       *
+       * @method uncache
+       */
+      uncache: function() {
+        this._fireSignal('service-worker-uncache-request');
+      },
+
+      /**
+       * The `status` method determines whether a given resource, indentified by the `relativeUrl` property, is already cached.
+       *
+       * @method status
+       */
+      status: function() {
+        this._fireSignal('service-worker-status-request');
+      },
+
+      handleServiceWorkerResponse: function(e) {
+        if (e.detail.relativeUrl == this.relativeUrl) {
+          this.cached = e.detail.cached;
+        }
+      }
+    });
+  </script>
+</polymer-element>
