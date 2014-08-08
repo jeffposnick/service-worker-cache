@@ -3,6 +3,12 @@
 <!--
 An experimental Polymer element that simplifies Service Worker-based caching.
 
+You can learn more about service workers at https://github.com/slightlyoff/ServiceWorker/
+
+Currently, this requires Google Chrome canary with the experimental web features flag turned on.
+
+You can learn more about browser support at https://jakearchibald.github.io/isserviceworkerready/
+
 ##### Example
 
     <service-worker-cache></service-worker-cache>
@@ -12,7 +18,7 @@ An experimental Polymer element that simplifies Service Worker-based caching.
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cache" attributes="">
+<polymer-element name="service-worker-cache" attributes="scope">
   <template>
 
   </template>
@@ -20,27 +26,20 @@ An experimental Polymer element that simplifies Service Worker-based caching.
   <script>
     Polymer('service-worker-cache', {
       /**
-       * The `author` attribute sets an initial author
-       * 
-       * @attribute author
+       * The `scope` corresponds to the paths that the service worker handles.
+       *
+       * @property scope
        * @type string
-       * @default 'Dimitri Glazkov'
+       * @default './'
        */
-      author: 'Dimitri Glazkov',
-      
-      /**
-       * `fancy` is a property that does something fancy.
-       * 
-       * @property fancy
-       * @type bool
-       * @default false
-       */
-      fancy: false,
+      scope: './',
+
+      serviceWorker: null,
 
       ready: function() {
-        // Ready is a lifecycle callback.
-        // You can do setup work in here.
-        // More info: http://www.polymer-project.org/docs/polymer/polymer.html#lifecyclemethods
+        navigator.serviceWorker.register('service-worker.js', { scope: this.scope }).then(function(serviceWorker) {
+          this.serviceWorker = serviceWorker;
+        });
       }
     });
   </script>
