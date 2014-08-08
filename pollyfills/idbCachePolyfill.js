@@ -46,7 +46,7 @@
         return idbCacheUtils.getAllItemsInCache(this._name).then(
             function(items) {
                 return items.map(function(i) {
-                    return new Request({ url: i.url });
+                    return new Request(i.url);
                 });
             },
             err
@@ -76,11 +76,10 @@
     };
 
     Cache.prototype.add = function(request) {
-        request = _castToRequest(request);
         var put = this.put.bind(this);
         return fetch(request).then(
-            function(response) { return put(request, response); },
-            err
+          function(response) { return put(request, response); },
+          err
         );
     };
 

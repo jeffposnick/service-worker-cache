@@ -215,8 +215,12 @@
                     if (!cursor) {
                         resolve(value);
                     }
-                    func.call(scope, cursor, cursor.key, cursor.value,
-                                     db, store);
+                    try {
+                      func.call(scope, cursor, cursor.key, cursor.value,
+                        db, store);
+                    } catch(e) {
+                      resolve(value);
+                    }
                 };
             });
         });
@@ -286,20 +290,21 @@
     if (typeof Response == "undefined") { return; }
 
     var objToResponse = function(obj) {
-        var headers = new HeaderMap();
+        var headers = new Headers();
         Object.keys(obj.headers).forEach(function(k) {
             headers.set(k, obj.headers[k]);
         });
-        var response = new Response(obj.blob ,{
+        var response = new Response(obj.blob, {
             status: obj.status,
             statusText: obj.statusText,
-            headers: headers,
+            headers: headers
         });
         // Workaround for property swallowing
         response._url = obj.url;
         response.toBlob = function() {
             return Promise.resolve(obj.blob);
         };
+
         return response;
     };
 
@@ -308,15 +313,17 @@
         response.headers.forEach(function(v, k) {
             headers[k] = v;
         });
-        return response.toBlob().then(function(blob) {
+        if (response.body) {
+          return response.body.asBlob().then(function(blob) {
             return {
-                url: response._url,
-                blob: blob,
-                status: response.status,
-                statusText: response.statusText,
-                headers: headers
+              url: response.url || response._url,
+              blob: blob,
+              status: response.status,
+              statusText: response.statusText,
+              headers: headers
             };
-        });
+          });
+        }
     };
 
     var getAsResponse = function() {
