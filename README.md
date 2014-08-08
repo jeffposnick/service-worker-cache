@@ -1,4 +1,4 @@
 service-worker-cache
-====================
+===
 
-An experimental Polymer element that simplifies Service Worker-based caching.
+See the [component landing page](http://jeffposnick.github.io/service-worker-cache) for more information.

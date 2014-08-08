@@ -1,0 +1,19 @@
+{
+  "name": "service-worker-cache",
+  "version": "0.0.1",
+  "authors": [
+    "Jeff Posnick <jeffy@google.com>"
+  ],
+  "description": "An experimental Polymer element that simplifies Service Worker-based caching.",
+  "keywords": "cache, caching, service-worker, polymer, web-components",
+  "main": "service-worker-cache.html",
+  "license": "Apache2",
+  "homepage": "https://github.com/jeffposnick/service-worker-cache/",
+  "ignore": [
+    "**/.*"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#~0.3.4",
+    "polymer-test-tools": "Polymer/polymer-test-tools#~0.3.3"
+  }
+}

@@ -1,0 +1,47 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+An experimental Polymer element that simplifies Service Worker-based caching.
+
+##### Example
+
+    <service-worker-cache></service-worker-cache>
+
+@element service-worker-cache
+@blurb An experimental Polymer element that simplifies Service Worker-based caching.
+@status alpha
+@homepage http://jeffposnick.github.io/service-worker-cache
+-->
+<polymer-element name="service-worker-cache" attributes="">
+  <template>
+
+  </template>
+
+  <script>
+    Polymer('service-worker-cache', {
+      /**
+       * The `author` attribute sets an initial author
+       * 
+       * @attribute author
+       * @type string
+       * @default 'Dimitri Glazkov'
+       */
+      author: 'Dimitri Glazkov',
+      
+      /**
+       * `fancy` is a property that does something fancy.
+       * 
+       * @property fancy
+       * @type bool
+       * @default false
+       */
+      fancy: false,
+
+      ready: function() {
+        // Ready is a lifecycle callback.
+        // You can do setup work in here.
+        // More info: http://www.polymer-project.org/docs/polymer/polymer.html#lifecyclemethods
+      }
+    });
+  </script>
+</polymer-element>
