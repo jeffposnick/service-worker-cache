@@ -12,7 +12,7 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 
 ##### Example
 
-    <service-worker-cachable-resource relativeUrl="path/to/file"></service-worker-cachable-resource>
+    <service-worker-cachable-resource relativeUrl="path/to/file" auto></service-worker-cachable-resource>
 
 @element service-worker-cachable-resource
 @blurb An experimental Polymer element represents a cachable resource.
@@ -46,21 +46,27 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
       /**
        * Indicates whether the resource is automatically cached.
        *
-       * If set to `false`, the resource can be manually cached via the `cache()` method.
+       * If `false`, the resource can be manually cached via the `cache()` method.
        *
-       * Defaults to `true`.
+       * Defaults to `false`.
        *
        * @property auto
        * @type bool
-       * @default true
+       * @default false
        */
-      auto: true,
+      auto: false,
 
       relativeUrlChanged: function() {
         if (this.auto) {
           this.cache();
         } else {
           this.status();
+        }
+      },
+
+      autoChanged: function() {
+        if (this.auto) {
+          this.cache();
         }
       },
 
