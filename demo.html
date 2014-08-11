@@ -39,11 +39,12 @@
 
       <template if="{{ initialized }}">
         <ul>
-          <template repeat="{{ relativeUrl in relativeUrls }}">
+          <template repeat="{{ relativeUrl, i in relativeUrls }}">
             <li>
+              {{i}}
               <service-worker-cacheable-resource relativeUrl="{{relativeUrl}}"
                                                  cached="{{cached[relativeUrl]}}"
-                                                 auto="false">
+                                                 auto?="{{ i == 1 }}">
               </service-worker-cacheable-resource>
 
               <template if="{{ cached[relativeUrl] }}">
@@ -69,6 +70,43 @@
       </template>
     </template>
 
+    <script>
+      var pageTemplate = document.querySelector('#page-template');
+      pageTemplate.cached = {};
+      pageTemplate.relativeUrls = [
+        'dummy-files/file1.txt',
+        'dummy-files/file2.txt',
+        'dummy-files/file3.txt',
+        'dummy-files/file4.txt',
+        'dummy-files/file5.txt',
+        'dummy-files/file6.txt',
+        'dummy-files/file7.txt',
+        'dummy-files/file8.txt',
+        'dummy-files/file9.txt',
+        'dummy-files/file10.txt'
+      ];
+
+      pageTemplate.addEventListener('template-bound', function() {
+        var serviceWorkerCache = document.querySelector('service-worker-cache');
+        serviceWorkerCache.addEventListener('service-worker-cache-initialized', function() {
+          serviceWorkerCache.relativeUrls = [pageTemplate.relativeUrls[0]];
+        });
+      });
+
+      // There's got to be a better way to handle clicks on elements in a conditional template, but...
+      document.body.addEventListener('click', function(e) {
+        if (e.srcElement.dataset.relativeUrl && e.srcElement.dataset.command) {
+          e.preventDefault();
+
+          if (e.srcElement.dataset.command == 'cache') {
+            document.querySelector('service-worker-cache').cache(e.srcElement.dataset.relativeUrl);
+          } else if (e.srcElement.dataset.command == 'uncache') {
+            document.querySelector('service-worker-cache').uncache(e.srcElement.dataset.relativeUrl);
+          }
+        }
+      });
+    </script>
+
     <section>
       <header>Caveats</header>
       <p>
@@ -93,37 +131,13 @@
     </section>
 
     <section>
-      <header>This Demo</header>
+      <header>About This Demo</header>
       <p>Now that that's out of the way... the demo! There are a few links to files which can be cached/uncached via the corresponding buttons.</p>
+      <p>The first URL is cached automatically via the <code>relativeUrls</code> property of the <code>&lt;service-worker-cacheable-resource&gt;</code>. If you know that there are certain files that your page will always want cached, this is the most straightforward way to do it.</p>
+      <p>It's possible to use this element to pre-cache resources, by setting the <code>auto</code> on the <code>&lt;service-worker-cacheable-resource&gt;</code>. That's what's done with the second URL.</p>
       <p>Visiting any of the links will also add it to the cache (reflected next time you reload the page).</p>
-      <p>It's possible to use this element to pre-cache resources, by setting the <code>auto</code> on the <code>&lt;service-worker-cacheable-resource&gt;</code> </p>
       <p>When experimenting, start with a fresh Incognito window in Chrome Canary.</p>
       <p>Try caching a few resources, then turning off your network connection. You'll be able to load them!</p>
     </section>
-
-    <script>
-      var pageTemplate = document.getElementById('page-template');
-      pageTemplate.cached = {};
-      pageTemplate.relativeUrls = [
-        'dummy-files/file1.txt',
-        'dummy-files/file2.txt',
-        'dummy-files/file3.txt',
-        'dummy-files/file4.txt',
-        'dummy-files/file5.txt'
-      ];
-
-      // There's got to be a better way to handle clicks on elements in a conditional template, but...
-      document.body.addEventListener('click', function(e) {
-        if (e.srcElement.dataset.relativeUrl && e.srcElement.dataset.command) {
-          e.preventDefault();
-
-          if (e.srcElement.dataset.command == 'cache') {
-            document.querySelector('service-worker-cache').cache(e.srcElement.dataset.relativeUrl);
-          } else if (e.srcElement.dataset.command == 'uncache') {
-            document.querySelector('service-worker-cache').uncache(e.srcElement.dataset.relativeUrl);
-          }
-        }
-      });
-    </script>
   </body>
 </html>
