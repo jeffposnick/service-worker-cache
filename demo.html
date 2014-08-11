@@ -50,16 +50,16 @@
               <template if="{{ cached[relativeUrl] }}">
                 <core-icon-button icon="cloud-done"
                                   title="Cached; press to remove."
-                                  data-command="uncache"
-                                  data-relative-url="{{relativeUrl}}">
+                                  data-relative-url="{{relativeUrl}}"
+                                  on-tap="{{handleUncacheTap}}">
                 </core-icon-button>
               </template>
 
               <template if="{{ !cached[relativeUrl] }}">
                 <core-icon-button icon="cloud-off"
                                   title="Not cached; press to download."
-                                  data-command="cache"
-                                  data-relative-url="{{relativeUrl}}">
+                                  data-relative-url="{{relativeUrl}}"
+                                  on-tap="{{handleCacheTap}}">
                 </core-icon-button>
               </template>
 
@@ -94,22 +94,17 @@
 
       pageTemplate.addEventListener('template-bound', function() {
         var serviceWorkerCache = document.querySelector('service-worker-cache');
+
         serviceWorkerCache.addEventListener('service-worker-cache-initialized', function() {
           serviceWorkerCache.relativeUrls = [pageTemplate.relativeUrls[0]];
         });
-      });
 
-      // There's got to be a better way to handle clicks on elements in a conditional template, but...
-      document.body.addEventListener('click', function(e) {
-        if (e.srcElement.dataset.relativeUrl && e.srcElement.dataset.command) {
-          e.preventDefault();
-
-          if (e.srcElement.dataset.command == 'cache') {
-            document.querySelector('service-worker-cache').cache(e.srcElement.dataset.relativeUrl);
-          } else if (e.srcElement.dataset.command == 'uncache') {
-            document.querySelector('service-worker-cache').uncache(e.srcElement.dataset.relativeUrl);
-          }
-        }
+        pageTemplate.handleUncacheTap = function(e) {
+          serviceWorkerCache.uncache(e.srcElement.dataset.relativeUrl);
+        };
+        pageTemplate.handleCacheTap = function(e) {
+          serviceWorkerCache.cache(e.srcElement.dataset.relativeUrl);
+        };
       });
     </script>
 
