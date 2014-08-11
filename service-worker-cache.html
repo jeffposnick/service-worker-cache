@@ -10,9 +10,38 @@ Currently, this requires Google Chrome canary with the experimental web features
 
 You can learn more about browser support at https://jakearchibald.github.io/isserviceworkerready/
 
-##### Example
+##### Basic example
 
     <service-worker-cache></service-worker-cache>
+
+This will automatically cache any resource after the first time it's requested, but won't pre-cache anything.
+
+##### Pre-caching a list of URLs
+
+    <service-worker-cache relativeUrls="['path/to/resource1', 'path/to/resource2']">
+    </service-worker-cache>
+
+This will pre-cache all the resources listed in the `relativeUrls` array, in addition to providing automatic
+caching of any additional resources that are accessed.
+
+##### Caching with <service-worker-cacheable-resource> elements
+
+    <service-worker-cache>
+      <service-worker-cacheable-resource
+        relativeUrl="path/to/resource1"
+        auto
+        cached="{{isResource1Cached}}">
+      </service-worker-cacheable-resource>
+
+      <service-worker-cacheable-resource
+        relativeUrl="path/to/resource2"
+        cached="{{isResource2Cached}}">
+      </service-worker-cacheable-resource>
+    </service-worker-cache>
+
+This is similar to the previous, but gives more control over the specific resources that are cached,
+e.g. by being able to bind to the `cached` attribute to determine whether a specific resource is
+already cached. See the documentation for [`<service-worker-cacheable-resource>`](#service-worker-cachable-resource) for more info.
 
 @element service-worker-cache
 @blurb An experimental Polymer element that simplifies Service Worker-based caching.
@@ -180,9 +209,13 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
       },
 
       relativeUrlsChanged: function() {
-        this.relativeUrls.forEach(function(relativeUrl) {
-          this.cache(relativeUrl);
-        }.bind(this));
+        if (!Array.isArray(this.relativeUrls)) {
+          this.relativeUrls = [this.relativeUrls];
+        } else {
+          this.relativeUrls.forEach(function(relativeUrl) {
+            this.cache(relativeUrl);
+          }.bind(this));
+        }
       },
 
       created: function() {
