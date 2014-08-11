@@ -115,6 +115,8 @@
         (Tested against version <code>38.0.2117.2</code>.)
       </p>
       <p>
+        Please make sure you're accessing this page via HTTPS, as service workers won't (service) work over HTTP. The exception to that rule is <code>http://localhost</code>, which is useful for development.
+      <p>
         The standards around service worker caching are still very much in flux, and this demo relies on a
         <a href="https://github.com/jeffposnick/service-worker-cache/commit/5b563295f211a8a64f0732e8879b712ea46b0a75">modified</a>
         version of the polyfills that shipped as part of <a href="https://github.com/Polymer/topeka/tree/master/polyfills">Topeka</a>.
