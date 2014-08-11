@@ -19,7 +19,7 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cache" attributes="scope initialized">
+<polymer-element name="service-worker-cache" attributes="scope relativeUrls initialized">
   <template>
     <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
                   on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
@@ -47,6 +47,21 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
        * @default './'
        */
       scope: './',
+
+      /**
+       * An array of URLs relative to `scope` corresponding to resources that should be initially cached.
+       *
+       * Setting this attribute is an alternative to using `<service-worker-cachable-resource>`
+       * child elements to cache files, and is most appropriate if you have a list of URLs that need to
+       * be cached unconditionally.
+       *
+       * Defaults to an empty array.
+       *
+       * @property relativeUrls
+       * @type array
+       * @default []
+       */
+      relativeUrls: null,
 
       /**
        * Whether the service worker is `initialized` or not.
@@ -78,7 +93,8 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
             this.serviceWorker.postMessage(payload, [messageChannel.port2]);
           } else {
             // TODO: Queue up messages and send when ready.
-            reject(Error('The service worker isn\'t ready yet.'))
+            console.error('The service worker isn\'t ready yet.');
+            reject(Error('The service worker isn\'t ready yet.'));
           }
         }.bind(this));
       },
@@ -161,6 +177,16 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 
       handleStatusRequest: function(e) {
         this.status(e.detail);
+      },
+
+      relativeUrlsChanged: function() {
+        this.relativeUrls.forEach(function(relativeUrl) {
+          this.cache(relativeUrl);
+        }.bind(this));
+      },
+
+      created: function() {
+        this.relativeUrls = [];
       },
 
       /**
