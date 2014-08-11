@@ -71,6 +71,12 @@
     </template>
 
     <script>
+      // Force the https: version of this page iff we're not on localhost or 127.0.0.1.
+      // Otherwise, service workers won't (service) work.
+      if (window.location.protocol != 'https:' && window.location.hostname != 'localhost' && window.location.hostname != '127.0.0.1') {
+        window.location = window.location.href.replace('http:', 'https:');
+      }
+
       var pageTemplate = document.querySelector('#page-template');
       pageTemplate.cached = {};
       pageTemplate.relativeUrls = [
