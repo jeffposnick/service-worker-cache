@@ -16,7 +16,7 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 ##### Example
 
     <service-worker-cacheable-resource
-      relativeUrl="path/to/file"
+      url="path/to/file"
       auto
       cached="{{isFileCached}}">
     </service-worker-cacheable-resource>
@@ -28,7 +28,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cacheable-resource" attributes="relativeUrl cached auto">
+<polymer-element name="service-worker-cacheable-resource" attributes="url cached auto">
   <template>
     <core-signals on-core-signal-service-worker-response="{{handleServiceWorkerResponse}}"></core-signals>
   </template>
@@ -36,12 +36,15 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
   <script>
     Polymer('service-worker-cacheable-resource', {
       /**
-       * The `relativeUrl` of the resource to cache. This attribute is required.
+       * The `url` of the resource to cache. This attribute is required.
        *
-       * @property relativeUrl
+       * If a relative URL is provided, then it will be interpretted as an absolute URL by joining it
+       * with the `baseUrl` of the corresponding `<service-worker-cache>`.
+       *
+       * @property url
        * @type string
        */
-      relativeUrl: '',
+      url: '',
 
       /**
        * Indicates whether the resource is currently present in the cache.
@@ -65,7 +68,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
        */
       auto: false,
 
-      relativeUrlChanged: function() {
+      urlChanged: function() {
         if (this.auto) {
           this.cache();
         } else {
@@ -80,16 +83,16 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
       },
 
       _fireSignal: function(signalName) {
-        if (this.relativeUrl) {
+        if (this.url) {
           this.asyncFire('core-signal', {
             name: signalName,
-            data: this.relativeUrl
+            data: this.url
           });
         }
       },
 
       /**
-       * The `cache` method caches the resource identified by the `relativeUrl` property.
+       * The `cache` method caches the resource identified by the `url` property.
        *
        * @method cache
        */
@@ -98,7 +101,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
       },
 
       /**
-       * The `uncache` method removes the resource identified by the `relativeUrl` property from the cache.
+       * The `uncache` method removes the resource identified by the `url` property from the cache.
        *
        * @method uncache
        */
@@ -107,7 +110,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
       },
 
       /**
-       * The `status` method determines whether a given resource, indentified by the `relativeUrl` property, is already cached.
+       * The `status` method determines whether a given resource, indentified by the `url` property, is already cached.
        *
        * @method status
        */
@@ -116,7 +119,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
       },
 
       handleServiceWorkerResponse: function(e) {
-        if (e.detail.relativeUrl == this.relativeUrl) {
+        if (e.detail.url == this.url) {
           this.cached = e.detail.cached;
         }
       }

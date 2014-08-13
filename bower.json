@@ -1,6 +1,6 @@
 {
   "name": "service-worker-cache",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "authors": [
     "Jeff Posnick <jeffy@google.com>"
   ],

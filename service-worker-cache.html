@@ -18,23 +18,23 @@ This will automatically cache any resource after the first time it's requested, 
 
 ##### Pre-caching a list of URLs
 
-    <service-worker-cache relativeUrls="['path/to/resource1', 'path/to/resource2']">
+    <service-worker-cache urls="['path/to/resource1', 'https://example.com/path/to/resource2']">
     </service-worker-cache>
 
-This will pre-cache all the resources listed in the `relativeUrls` array, in addition to providing automatic
+This will pre-cache all the resources listed in the `urls` array, in addition to providing automatic
 caching of any additional resources that are accessed.
 
 ##### Caching with <service-worker-cacheable-resource> elements
 
     <service-worker-cache>
       <service-worker-cacheable-resource
-        relativeUrl="path/to/resource1"
+        url="path/to/resource1"
         auto
         cached="{{isResource1Cached}}">
       </service-worker-cacheable-resource>
 
       <service-worker-cacheable-resource
-        relativeUrl="path/to/resource2"
+        url="https://example.com/path/to/resource2"
         cached="{{isResource2Cached}}">
       </service-worker-cacheable-resource>
     </service-worker-cache>
@@ -48,7 +48,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cache" attributes="scope relativeUrls initialized">
+<polymer-element name="service-worker-cache" attributes="baseUrl initialized scope urls version">
   <template>
     <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
                   on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
@@ -67,8 +67,6 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
       /**
        * The `scope` corresponds to the paths that the service worker handles.
        *
-       * *(Note that scope restrictions seem a bit buggy at the moment.)*
-       *
        * Defaults to `./`.
        *
        * @property scope
@@ -78,7 +76,32 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
       scope: './',
 
       /**
-       * An array of URLs relative to `scope` corresponding to resources that should be initially cached.
+       * The `baseUrl` is joined with relative URLs for resources to construct an absolute URL.
+       *
+       * Defaults to `./`.
+       *
+       * @property baseUrl
+       * @type string
+       * @default './'
+       */
+      baseUrl: './',
+
+      /**
+       * Corresponds to the [`version`](https://github.com/slightlyoff/ServiceWorker/blob/master/explainer.md#serviceworker-installation--upgrade) property of the service worker.
+       *
+       * Defaults to 1.
+       *
+       * @property version
+       * @type number
+       * @default 1
+       */
+      version: 1,
+
+      /**
+       * An array of URLs corresponding to resources that should be initially cached.
+       *
+       * URLs provided can be absolute or relative. If relative, then they will be joined with
+       * `baseUrl` to construct an absolute URL.
        *
        * Setting this attribute is an alternative to using `<service-worker-cacheable-resource>`
        * child elements to cache files, and is most appropriate if you have a list of URLs that need to
@@ -86,17 +109,20 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
        *
        * Defaults to an empty array.
        *
-       * @property relativeUrls
+       * @property urls
        * @type array
        * @default []
        */
-      relativeUrls: null,
+      urls: null,
 
       /**
        * Whether the service worker is `initialized` or not.
        *
-       * Provided as an alternative to listening for the `service-worker-cache-initialized` event,
-       * to allow for `<template if="{{ initialized }}">` on your host page.
+       * Provided as an alternative to listening for the `service-worker-cache-initialized` event.
+       *
+       * Any `<service-worker-cacheable-resource>` that you're using on your host page should be located
+       * with a `<template if="{{ initialized }}">` on your host page, so that they're only requested after
+       * the service worker is initialized. (TODO: Handle this race condition more gracefully.)
        *
        * Defaults to `false`.
        *
@@ -106,8 +132,21 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
        */
       initialized: false,
 
-      serviceWorker: null,
+      /**
+       * Whether service workers are supported by the current browser.
+       *
+       * Since service workers are currently only supported by Chrome Canary, it's recommended that you add
+       * `<template if="{{ unsupported }}">` on your host page and provide some info there.
+       *
+       * Defaults to `false`.
+       *
+       * @property unsupported
+       * @type bool
+       * @default false
+       */
       unsupported: false,
+
+      serviceWorker: null,
 
       _sendMessage: function(payload) {
         return new Promise(function(resolve, reject) {
@@ -129,61 +168,61 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
       },
 
       /**
-       * The `service-worker-response` `<core-signal>` is fired to indicate the cache status of a given relative URL.
+       * The `service-worker-response` `<core-signal>` is fired to indicate the cache status of a given URL.
        *
        * @event core-signal-service-worker-response
        * @param {Object} detail
-       *   @param {string} detail.relativeUrl The relative URL of the resource.
+       *   @param {string} detail.url The URL of the resource.
        *   @param {bool} detail.cached `true` is the resource is cached, and `false` otherwise.
        */
 
       /**
-       * The `cache` method caches a resource identified by its relative URL.
+       * The `cache` method caches a resource identified by its URL.
        *
        * It will fire a `service-worker-response` `<core-signal>` when complete.
        *
        * @method cache
-       * @param {string} relativeUrl The URL, relative to `this.scope`, to be cached.
+       * @param {string} url The URL to be cached. It can be either absolute or relative to `baseUrl`.
        */
-      cache: function(relativeUrl) {
-        console.log('cache', relativeUrl);
+      cache: function(url) {
+        console.log('cache', url);
         this._sendMessage({
           command: 'cache',
-          relativeUrl: relativeUrl
+          url: url
         }).then(function(e) {
           this._fireResponseSignal(e.data);
         }.bind(this));
       },
 
       /**
-       * The `uncache` method removes from the cache a resource identified by its relative URL.
+       * The `uncache` method removes from the cache a resource identified by its URL.
        *
        * It will fire a `service-worker-response` `<core-signal>` when complete.
        *
        * @method uncache
-       * @param {string} relativeUrl The URL, relative to `this.scope`, to be removed from the cache.
+       * @param {string} url The URL to be removed from the cache. It can be either absolute or relative to `baseUrl`.
        */
-      uncache: function(relativeUrl) {
+      uncache: function(url) {
         this._sendMessage({
           command: 'uncache',
-          relativeUrl: relativeUrl
+          url: url
         }).then(function(e) {
           this._fireResponseSignal(e.data);
         }.bind(this));
       },
 
       /**
-       * The `status` method determines whether a given resource, indentified by its relative URL, is already cached.
+       * The `status` method determines whether a given resource, indentified by its URL, is already cached.
        *
        * It will fire a `service-worker-response` `<core-signal>` when complete.
        *
        * @method status
-       * @param {string} relativeUrl The URL, relative to `this.scope`, to be looked up.
+       * @param {string} url The URL to be looked up. It can be either absolute or relative to `baseUrl`.
        */
-      status: function(relativeUrl) {
+      status: function(url) {
         this._sendMessage({
           command: 'status',
-          relativeUrl: relativeUrl
+          url: url
         }).then(function(e) {
           this._fireResponseSignal(e.data);
         }.bind(this));
@@ -208,18 +247,18 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
         this.status(e.detail);
       },
 
-      relativeUrlsChanged: function() {
-        if (!Array.isArray(this.relativeUrls)) {
-          this.relativeUrls = [this.relativeUrls];
+      urlsChanged: function() {
+        if (!Array.isArray(this.urls)) {
+          this.urls = [this.urls];
         } else {
-          this.relativeUrls.forEach(function(relativeUrl) {
-            this.cache(relativeUrl);
+          this.urls.forEach(function(url) {
+            this.cache(url);
           }.bind(this));
         }
       },
 
       created: function() {
-        this.relativeUrls = [];
+        this.urls = [];
       },
 
       /**
@@ -230,12 +269,14 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 
       ready: function() {
         if ('serviceWorker' in navigator) {
-          var that = this;
-          navigator.serviceWorker.register('service-worker.js', { scope: this.scope }).then(function(serviceWorker) {
-            that.serviceWorker = serviceWorker;
-            that.asyncFire('service-worker-cache-initialized');
-            that.initialized = true;
-          });
+          var serviceWorkerWithParams = 'service-worker.js?baseUrl=' + this.baseUrl + '&version=' + this.version;
+          navigator.serviceWorker.register(serviceWorkerWithParams, {
+            scope: this.scope
+          }).then(function(serviceWorker) {
+            this.serviceWorker = serviceWorker;
+            this.asyncFire('service-worker-cache-initialized');
+            this.initialized = true;
+          }.bind(this));
         } else {
           this.unsupported = true;
         }
