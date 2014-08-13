@@ -2,7 +2,7 @@
 <link rel="import" href="../core-signals/core-signals.html">
 
 <!--
-An experimental Polymer element represents a cachable resource, to be used in conjunction with a [`<service-worker-cache>`](#service-worker-cache).
+An experimental Polymer element represents a cacheable resource, to be used in conjunction with a [`<service-worker-cache>`](#service-worker-cache).
 
 This element communicates with [`<service-worker-cache>`](#service-worker-cache) via [`<core-signals>`](https://github.com/Polymer/core-signals), so there doesn't need
 to be a specific DOM relationship between the two.
@@ -15,16 +15,16 @@ You can learn more about browser support at https://jakearchibald.github.io/isse
 
 ##### Example
 
-    <service-worker-cachable-resource
+    <service-worker-cacheable-resource
       relativeUrl="path/to/file"
       auto
       cached="{{isFileCached}}">
-    </service-worker-cachable-resource>
+    </service-worker-cacheable-resource>
 
 This will automatically cache the resource at `"path/to/file"` and publish the cached state via the `isFileCached` variable.
 
-@element service-worker-cachable-resource
-@blurb An experimental Polymer element represents a cachable resource.
+@element service-worker-cacheable-resource
+@blurb An experimental Polymer element represents a cacheable resource.
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
