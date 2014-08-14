@@ -2,6 +2,7 @@ var CACHE_PREFIX = 'cache-v';
 // By default, use the same directory that hosts this service worker as the base URL.
 var baseUrl = new URL('./', self.location.href);
 self.version = '1';
+var precacheUrls = [];
 var urlToFallbackUrl = {};
 var urlToFallbackData = {};
 
@@ -25,12 +26,19 @@ function initFromUrlParams() {
   // passed as part of this service worker's URL.
   var baseUrlParam = queryParamValue('baseUrl');
   if (baseUrlParam) {
-    baseUrl = new URL(baseUrlParam, self.location.href).toString();
+    baseUrl = new URL(decodeURIComponent(baseUrlParam), self.location.href).toString();
   }
 
   var versionUrlParam = queryParamValue('version');
   if (versionUrlParam) {
-    self.version = versionUrlParam;
+    self.version = decodeURIComponent(versionUrlParam);
+  }
+
+  var precacheParam = queryParamValue('precache');
+  if (precacheParam) {
+    precacheUrls = precacheParam.split(',').map(function(url) {
+      return decodeURIComponent(url);
+    });
   }
 }
 
@@ -42,7 +50,14 @@ function absoluteUrl(url) {
 
 function addEventListeners() {
   self.addEventListener('install', function(e) {
-    e.waitUntil(caches.create(CACHE_PREFIX + self.version));
+    // Pre-cache everything in precacheUrls, and wait until that's done to complete the install.
+    e.waitUntil(caches.create(CACHE_PREFIX + self.version).then(
+      function(cache) {
+        return Promise.all(precacheUrls.map(function(url) {
+          return cache.add(absoluteUrl(url));
+        }));
+      }
+    ));
   });
 
   self.addEventListener('fetch', function(e) {
@@ -122,8 +137,8 @@ function addEventListeners() {
 
         case 'registerFallbackUrl':
           var fallbackUrl = absoluteUrl(e.data.fallbackUrl);
-          urlToFallbackUrl[url] = fallbackUrl;
           cache.add(fallbackUrl).then(function() {
+            urlToFallbackUrl[url] = fallbackUrl;
             console.log('  cached', fallbackUrl, 'as fallback for', url);
             e.data.port.postMessage({
               url: e.data.fallbackUrl,

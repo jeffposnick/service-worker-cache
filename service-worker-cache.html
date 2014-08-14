@@ -48,7 +48,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cache" attributes="baseUrl initialized scope urls version">
+<polymer-element name="service-worker-cache" attributes="baseUrl initialized precacheUrls scope version">
   <template>
     <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
                   on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
@@ -109,13 +109,16 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
        * child elements to cache files, and is most appropriate if you have a list of URLs that need to
        * be cached unconditionally.
        *
-       * Defaults to an empty array.
+       * This should be set when the `<service-worker-cache>` is first created. Note that if any of the URLs
+       * can't be fetched, the service worker will fail to install, so using `precacheUrls` is only recommended
+       * for URLs that *must* be cached for your app to function.
+       *
+       * Defaults to null.
        *
        * @property urls
        * @type array
-       * @default []
        */
-      urls: null,
+      precacheUrls: null,
 
       /**
        * Whether the service worker is `initialized` or not.
@@ -291,20 +294,6 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
         this.registerFallbackData(e.detail.url, e.detail.fallbackData);
       },
 
-      urlsChanged: function() {
-        if (!Array.isArray(this.urls)) {
-          this.urls = [this.urls];
-        } else {
-          this.urls.forEach(function(url) {
-            this.cache(url);
-          }.bind(this));
-        }
-      },
-
-      created: function() {
-        this.urls = [];
-      },
-
       /**
        * The `service-worker-cache-initialized` event is fired to indicate that the service worker has been initialized.
        *
@@ -313,7 +302,17 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 
       ready: function() {
         if ('serviceWorker' in navigator) {
-          var serviceWorkerWithParams = 'service-worker.js?baseUrl=' + this.baseUrl + '&version=' + this.version;
+          var serviceWorkerWithParams = 'service-worker.js?baseUrl=' + encodeURIComponent(this.baseUrl);
+          serviceWorkerWithParams += '&version=' + encodeURIComponent(this.version);
+          if (this.precacheUrls) {
+            if (!Array.isArray(this.precacheUrls)) {
+              this.precacheUrls = [this.precacheUrls];
+            }
+            serviceWorkerWithParams += '&precache=' + this.precacheUrls.map(function(url) {
+              return encodeURIComponent(url);
+            }).join(',');
+          }
+
           navigator.serviceWorker.register(serviceWorkerWithParams).then(function(serviceWorker) {
             this.serviceWorker = serviceWorker;
             this.asyncFire('service-worker-cache-initialized');
