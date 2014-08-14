@@ -1,0 +1,181 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../core-signals/core-signals.html">
+
+<!--
+An experimental Polymer element represents a cacheable resource, to be used in conjunction with a [`<service-worker-cache>`](#service-worker-cache).
+
+This element communicates with [`<service-worker-cache>`](#service-worker-cache) via [`<core-signals>`](https://github.com/Polymer/core-signals), so there doesn't need
+to be a specific DOM relationship between the two.
+
+You can learn more about service workers at https://github.com/slightlyoff/ServiceWorker/
+
+Currently, this requires Google Chrome canary with the experimental web features flag turned on.
+
+You can learn more about browser support at https://jakearchibald.github.io/isserviceworkerready/
+
+##### Example
+
+    <service-worker-cacheable-resource
+      url="path/to/file"
+      auto
+      cached="{{isFileCached}}">
+    </service-worker-cacheable-resource>
+
+This will automatically cache the resource at `"path/to/file"` and publish the cached state via the `isFileCached` variable.
+
+@element service-worker-cacheable-resource
+@blurb An experimental Polymer element represents a cacheable resource.
+@status alpha
+@homepage http://jeffposnick.github.io/service-worker-cache
+-->
+<polymer-element name="service-worker-cacheable-resource" attributes="auto cached fallbackData fallbackUrl url">
+  <template>
+    <core-signals on-core-signal-service-worker-response="{{handleServiceWorkerResponse}}"></core-signals>
+  </template>
+
+  <script>
+    Polymer('service-worker-cacheable-resource', {
+      /**
+       * The `url` of the resource to cache. This attribute is required.
+       *
+       * If a relative URL is provided, then it will be interpretted as an absolute URL by joining it
+       * with the `baseUrl` of the corresponding `<service-worker-cache>`.
+       *
+       * @property url
+       * @type string
+       */
+      url: '',
+
+      /**
+       * Indicates whether the resource is currently present in the cache.
+       *
+       * @property cached
+       * @type bool
+       * @default false
+       */
+      cached: false,
+
+      /**
+       * Provides an optional `fallbackUrl` that will be used when `url` can't be fetched via the cache or network.
+       *
+       * If set, the resource at `fallbackUrl` will be automatically cached.
+       *
+       * Defaults to ''.
+       *
+       * @property fallbackUrl
+       * @type string
+       * @default ''
+       */
+      fallbackUrl: '',
+
+      /**
+       * Provides an optional `fallbackData` that will be used when `url` can't be fetched via the cache or network.
+       *
+       * The response will have Content-Type: application/json and the body will consist of the
+       * JSON-serialized version of `fallbackData`.
+       *
+       * Note that if both `fallbackUrl` and `fallbackData` are set, `fallbackUrl` takes precedence.
+       *
+       * CURRENTLY NON-FUNCTIONAL.
+       *
+       * Defaults to null.
+       *
+       * @property fallbackData
+       * @type object
+       * @default null
+       */
+      fallbackData: null,
+
+      /**
+       * Indicates whether the resource is automatically cached.
+       *
+       * If `false`, the resource can be manually cached via the `cache()` method.
+       *
+       * Defaults to `false`.
+       *
+       * @property auto
+       * @type bool
+       * @default false
+       */
+      auto: false,
+
+      urlChanged: function() {
+        if (this.auto) {
+          this.cache();
+        } else {
+          this.status();
+        }
+      },
+
+      fallbackUrlChanged: function() {
+        this.asyncFire('core-signal', {
+          name: 'service-worker-register-fallback-url-request',
+          data: {
+            url: this.url,
+            fallbackUrl: this.fallbackUrl
+          }
+        });
+      },
+
+      fallbackDataChanged: function() {
+        this.asyncFire('core-signal', {
+          name: 'service-worker-register-fallback-data-request',
+          data: {
+            url: this.url,
+            fallbackData: this.fallbackData
+          }
+        });
+
+        this.cached = true;
+      },
+
+      autoChanged: function() {
+        if (this.auto) {
+          this.cache();
+        }
+      },
+
+      _fireSignal: function(signalName) {
+        if (this.url) {
+          this.asyncFire('core-signal', {
+            name: signalName,
+            data: this.url
+          });
+        }
+      },
+
+      /**
+       * The `cache` method caches the resource identified by the `url` property.
+       *
+       * @method cache
+       */
+      cache: function() {
+        this._fireSignal('service-worker-cache-request');
+      },
+
+      /**
+       * The `uncache` method removes the resource identified by the `url` property from the cache.
+       *
+       * @method uncache
+       */
+      uncache: function() {
+        this._fireSignal('service-worker-uncache-request');
+      },
+
+      /**
+       * The `status` method determines whether a given resource, indentified by the `url` property, is already cached.
+       *
+       * @method status
+       */
+      status: function() {
+        this._fireSignal('service-worker-status-request');
+      },
+
+      handleServiceWorkerResponse: function(e) {
+        if ((e.detail.url == this.url || e.detail.url == this.fallbackUrl) && 'cached' in e.detail) {
+          this.cached = e.detail.cached;
+        }
+      }
+    });
+  </script>
+</polymer-element>

@@ -1,0 +1,327 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../core-signals/core-signals.html">
+
+<!--
+An experimental Polymer element that simplifies Service Worker-based caching.
+
+You can learn more about service workers at https://github.com/slightlyoff/ServiceWorker/
+
+Currently, this requires Google Chrome canary with the experimental web features flag turned on.
+
+You can learn more about browser support at https://jakearchibald.github.io/isserviceworkerready/
+
+##### Basic example
+
+    <service-worker-cache></service-worker-cache>
+
+This will automatically cache any resource after the first time it's requested, but won't pre-cache anything.
+
+##### Pre-caching a list of URLs
+
+    <service-worker-cache urls="['path/to/resource1', 'https://example.com/path/to/resource2']">
+    </service-worker-cache>
+
+This will pre-cache all the resources listed in the `urls` array, in addition to providing automatic
+caching of any additional resources that are accessed.
+
+##### Caching with <service-worker-cacheable-resource> elements
+
+    <service-worker-cache>
+      <service-worker-cacheable-resource
+        url="path/to/resource1"
+        auto
+        cached="{{isResource1Cached}}">
+      </service-worker-cacheable-resource>
+
+      <service-worker-cacheable-resource
+        url="https://example.com/path/to/resource2"
+        cached="{{isResource2Cached}}">
+      </service-worker-cacheable-resource>
+    </service-worker-cache>
+
+This is similar to the previous, but gives more control over the specific resources that are cached,
+e.g. by being able to bind to the `cached` attribute to determine whether a specific resource is
+already cached. See the documentation for [`<service-worker-cacheable-resource>`](#service-worker-cacheable-resource) for more info.
+
+@element service-worker-cache
+@blurb An experimental Polymer element that simplifies Service Worker-based caching.
+@status alpha
+@homepage http://jeffposnick.github.io/service-worker-cache
+-->
+<polymer-element name="service-worker-cache" attributes="baseUrl initialized precacheUrls scope version">
+  <template>
+    <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
+                  on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
+                  on-core-signal-service-worker-status-request="{{handleStatusRequest}}"
+                  on-core-signal-service-worker-register-fallback-url-request="{{handleRegisterFallbackUrlRequest}}"
+                  on-core-signal-service-worker-register-fallback-data-request="{{handleRegisterFallbackDataRequest}}">
+    </core-signals>
+
+    <template if="{{ unsupported }}">
+      <h3>Your browser doesn't support service workers!</h3>
+      Try again using <a href="https://www.google.com/chrome/browser/canary.html">Google Chrome Canary</a>
+      with <a href="chrome://flags/#enable-experimental-web-platform-features">experimental web features</a> enabled.
+    </template>
+  </template>
+
+  <script>
+    Polymer('service-worker-cache', {
+      /**
+       * The `scope` corresponds to the paths that the service worker handles.
+       *
+       * Defaults to `./`.
+       *
+       * @property scope
+       * @type string
+       * @default './'
+       */
+      scope: './',
+
+      /**
+       * The `baseUrl` is joined with relative URLs for resources to construct an absolute URL.
+       *
+       * Defaults to `./`.
+       *
+       * @property baseUrl
+       * @type string
+       * @default './'
+       */
+      baseUrl: './',
+
+      /**
+       * Corresponds to the [`version`](https://github.com/slightlyoff/ServiceWorker/blob/master/explainer.md#serviceworker-installation--upgrade) property of the service worker.
+       *
+       * Defaults to 1.
+       *
+       * @property version
+       * @type number
+       * @default 1
+       */
+      version: 1,
+
+      /**
+       * An array of URLs corresponding to resources that should be initially cached.
+       *
+       * URLs provided can be absolute or relative. If relative, then they will be joined with
+       * `baseUrl` to construct an absolute URL.
+       *
+       * Setting this attribute is an alternative to using `<service-worker-cacheable-resource>`
+       * child elements to cache files, and is most appropriate if you have a list of URLs that need to
+       * be cached unconditionally.
+       *
+       * This should be set when the `<service-worker-cache>` is first created. Note that if any of the URLs
+       * can't be fetched, the service worker will fail to install, so using `precacheUrls` is only recommended
+       * for URLs that *must* be cached for your app to function.
+       *
+       * Defaults to null.
+       *
+       * @property urls
+       * @type array
+       */
+      precacheUrls: null,
+
+      /**
+       * Whether the service worker is `initialized` or not.
+       *
+       * Provided as an alternative to listening for the `service-worker-cache-initialized` event.
+       *
+       * Any `<service-worker-cacheable-resource>` that you're using on your host page should be located
+       * with a `<template if="{{ initialized }}">` on your host page, so that they're only requested after
+       * the service worker is initialized. (TODO: Handle this race condition more gracefully.)
+       *
+       * Defaults to `false`.
+       *
+       * @property initialized
+       * @type bool
+       * @default false
+       */
+      initialized: false,
+
+      /**
+       * Whether service workers are supported by the current browser.
+       *
+       * Since service workers are currently only supported by Chrome Canary, it's recommended that you add
+       * `<template if="{{ unsupported }}">` on your host page and provide some info there.
+       *
+       * Defaults to `false`.
+       *
+       * @property unsupported
+       * @type bool
+       * @default false
+       */
+      unsupported: false,
+
+      serviceWorker: null,
+
+      _sendMessage: function(payload) {
+        return new Promise(function(resolve, reject) {
+          if (this.serviceWorker) {
+            var messageChannel = new MessageChannel();
+            messageChannel.port1.onmessage = function(e) {
+              resolve(e);
+            };
+
+            payload.port = messageChannel.port2;
+            this.serviceWorker.postMessage(payload, [messageChannel.port2]);
+          } else {
+            // TODO: Queue up messages and send when ready.
+            console.error('The service worker isn\'t ready yet.');
+            reject(Error('The service worker isn\'t ready yet.'));
+          }
+        }.bind(this));
+      },
+
+      /**
+       * The `service-worker-response` `<core-signal>` is fired to indicate the cache status of a given URL.
+       *
+       * @event core-signal-service-worker-response
+       * @param {Object} detail
+       *   @param {string} detail.url The URL of the resource.
+       *   @param {bool} detail.cached `true` is the resource is cached, and `false` otherwise.
+       */
+
+      /**
+       * The `cache` method caches a resource identified by its URL.
+       *
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
+       *
+       * @method cache
+       * @param {string} url The URL to be cached. It can be either absolute or relative to `baseUrl`.
+       */
+      cache: function(url) {
+        this._sendMessage({
+          command: 'cache',
+          url: url
+        }).then(function(e) {
+          this._fireResponseSignal(e.data);
+        }.bind(this));
+      },
+
+      /**
+       * The `uncache` method removes from the cache a resource identified by its URL.
+       *
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
+       *
+       * @method uncache
+       * @param {string} url The URL to be removed from the cache. It can be either absolute or relative to `baseUrl`.
+       */
+      uncache: function(url) {
+        this._sendMessage({
+          command: 'uncache',
+          url: url
+        }).then(function(e) {
+          this._fireResponseSignal(e.data);
+        }.bind(this));
+      },
+
+      /**
+       * The `status` method determines whether a given resource, indentified by its URL, is already cached.
+       *
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
+       *
+       * @method status
+       * @param {string} url The URL to be looked up. It can be either absolute or relative to `baseUrl`.
+       */
+      status: function(url) {
+        this._sendMessage({
+          command: 'status',
+          url: url
+        }).then(function(e) {
+          this._fireResponseSignal(e.data);
+        }.bind(this));
+      },
+
+      /**
+       * The `registerFallbackUrl` method registers an alternative URL that will be used when `url` can't be fetched via the cache or network.
+       *
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
+       *
+       * @method registerFallbackUrl
+       * @param {string} url The URL that is normally accessed. It can be either absolute or relative to `baseUrl`.
+       * @param {string} fallbackUrl The URL to use when `url` is unreachable. It can be either absolute or relative to `baseUrl`.
+       */
+      registerFallbackUrl: function(url, fallbackUrl) {
+        this._sendMessage({
+          command: 'registerFallbackUrl',
+          url: url,
+          fallbackUrl: fallbackUrl
+        }).then(function(e) {
+          this._fireResponseSignal(e.data);
+        }.bind(this));
+      },
+
+      /**
+       * The `registerFallbackData` method registers data that will be returned when `url` can't be fetched via the cache or network.
+       *
+       * CURRENTLY NON-FUNCTIONAL.
+       *
+       * @method registerFallbackData
+       * @param {string} url The URL that is normally accessed. It can be either absolute or relative to `baseUrl`.
+       * @param {string} fallbackData The data to use when `url` is unreachable.
+       */
+      registerFallbackData: function(url, fallbackData) {
+        this._sendMessage({
+          command: 'registerFallbackData',
+          url: url,
+          fallbackData: fallbackData
+        });
+      },
+
+      _fireResponseSignal: function(data) {
+        this.asyncFire('core-signal', {
+          name: 'service-worker-response',
+          data: data
+        });
+      },
+
+      handleCacheRequest: function(e) {
+        this.cache(e.detail);
+      },
+
+      handleUncacheRequest: function(e) {
+        this.uncache(e.detail);
+      },
+
+      handleStatusRequest: function(e) {
+        this.status(e.detail);
+      },
+
+      handleRegisterFallbackUrlRequest: function(e) {
+        this.registerFallbackUrl(e.detail.url, e.detail.fallbackUrl);
+      },
+
+      handleRegisterFallbackDataRequest: function(e) {
+        this.registerFallbackData(e.detail.url, e.detail.fallbackData);
+      },
+
+      /**
+       * The `service-worker-cache-initialized` event is fired to indicate that the service worker has been initialized.
+       *
+       * @event service-worker-cache-initialized
+       */
+
+      ready: function() {
+        if ('serviceWorker' in navigator) {
+          var serviceWorkerWithParams = 'service-worker.js?baseUrl=' + encodeURIComponent(this.baseUrl);
+          serviceWorkerWithParams += '&version=' + encodeURIComponent(this.version);
+          if (this.precacheUrls) {
+            if (!Array.isArray(this.precacheUrls)) {
+              this.precacheUrls = [this.precacheUrls];
+            }
+            serviceWorkerWithParams += '&precache=' + this.precacheUrls.map(function(url) {
+              return encodeURIComponent(url);
+            }).join(',');
+          }
+
+          navigator.serviceWorker.register(serviceWorkerWithParams).then(function(serviceWorker) {
+            this.serviceWorker = serviceWorker;
+            this.asyncFire('service-worker-cache-initialized');
+            this.initialized = true;
+          }.bind(this));
+        } else {
+          this.unsupported = true;
+        }
+      }
+    });
+  </script>
+</polymer-element>
