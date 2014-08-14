@@ -2,6 +2,8 @@ var CACHE_PREFIX = 'cache-v';
 // By default, use the same directory that hosts this service worker as the base URL.
 var baseUrl = new URL('./', self.location.href);
 self.version = '1';
+var urlToFallbackUrl = {};
+var urlToFallbackData = {};
 
 function importPolyFills() {
   importScripts('polyfills/idbCacheUtils.js');
@@ -24,7 +26,6 @@ function initFromUrlParams() {
   var baseUrlParam = queryParamValue('baseUrl');
   if (baseUrlParam) {
     baseUrl = new URL(baseUrlParam, self.location.href).toString();
-    console.log('baseUrl', baseUrl);
   }
 
   var versionUrlParam = queryParamValue('version');
@@ -46,33 +47,40 @@ function addEventListeners() {
 
   self.addEventListener('fetch', function(e) {
     var request = e.request;
-    console.log('onfetch; request URL is', request.url);
+    console.log('onfetch; request url is', request.url);
 
     // Basic read-through caching.
     e.respondWith(
-      caches.match(request, CACHE_PREFIX + self.version).then(
-        function(response) {
-          console.log('  cache hit!');
-          return response;
-        },
-        function() {
-          // we didn't have it in the cache, so add it to the cache and return it
-          return caches.get(CACHE_PREFIX + self.version).then(
-            function(cache) {
-              console.log('  cache miss; attempting to cache at runtime.');
+      caches.match(request, CACHE_PREFIX + self.version).then(function(response) {
+        console.log('  cache hit!');
+        return response;
+      }, function() {
+        // we didn't have it in the cache, so add it to the cache and return it
+        return caches.get(CACHE_PREFIX + self.version).then(function(cache) {
+          console.log('  cache miss; attempting to fetch and cache at runtime...');
 
-              return cache.add(request).then(function(response) {
-                return response;
-              });
+          return cache.add(request.url).then(
+            function(response) {
+              console.log('  fetch successful.');
+              return response;
+            },
+            function() {
+              if (request.url in urlToFallbackUrl) {
+                console.log('  fetch failed; falling back to', urlToFallbackUrl[request.url]);
+                return fetch(urlToFallbackUrl[request.url]);
+                // TODO: Fall back to the urlToFallbackData[request.url] if present.
+              } else {
+                console.log('  fetch failed; no fallback available.');
+              }
             }
           );
-        }
-      )
+        });
+      })
     );
   });
 
   self.addEventListener('message', function(e) {
-    console.log('onmessage; event is', e);
+    console.log('onmessage; data is', e.data);
 
     caches.get(CACHE_PREFIX + self.version).then(function(cache) {
       var url = absoluteUrl(e.data.url);
@@ -110,6 +118,22 @@ function addEventListeners() {
               cached: false
             });
           });
+        break;
+
+        case 'registerFallbackUrl':
+          var fallbackUrl = absoluteUrl(e.data.fallbackUrl);
+          urlToFallbackUrl[url] = fallbackUrl;
+          cache.add(fallbackUrl).then(function() {
+            console.log('  cached', fallbackUrl, 'as fallback for', url);
+            e.data.port.postMessage({
+              url: e.data.fallbackUrl,
+              cached: true
+            });
+          });
+        break;
+
+        case 'registerFallbackData':
+          urlToFallbackData[url] = e.data.fallbackData;
         break;
       }
     });

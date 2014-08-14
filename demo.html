@@ -6,6 +6,7 @@
 
     <script src="../platform/platform.js"></script>
     <link rel="import" href="../core-icon-button/core-icon-button.html">
+    <link rel="import" href="../core-ajax/core-ajax.html">
     <link rel="import" href="service-worker-cache.html">
     <link rel="import" href="service-worker-cacheable-resource.html">
 
@@ -66,6 +67,21 @@
             </li>
           </template>
         </ul>
+
+        <service-worker-cacheable-resource url="{{weatherUrl}}"
+                                           fallbackUrl="dummy-files/weather.json"
+                                           cached="{{weatherCached}}">
+        </service-worker-cacheable-resource>
+        <template if="{{ weatherCached }}">
+          <core-ajax auto
+                     url="{{weatherUrl}}"
+                     handleAs="json"
+                     response="{{weather}}">
+          </core-ajax>
+        </template>
+        <template if="{{ weather }}">
+          <p>Oh, and by the way, it's {{weather.main.temp}} °F in {{weather.name}} right now.</p>
+        </template>
       </template>
     </template>
 
@@ -77,10 +93,11 @@
       }
 
       var pageTemplate = document.querySelector('#page-template');
+      pageTemplate.polymerLogo = 'http://www.polymer-project.org/images/logos/lockup.svg';
+      pageTemplate.weatherUrl = 'http://api.openweathermap.org/data/2.5/weather?q=Brooklyn&units=imperial';
       pageTemplate.cached = {};
-      pageTemplate.baseUrl = 'dummy-files';
       pageTemplate.urls = [
-        'http://www.polymer-project.org/images/logos/lockup.svg',
+        pageTemplate.polymerLogo,
         'dummy-files/file1.txt',
         'dummy-files/file2.txt',
         'dummy-files/file3.txt',

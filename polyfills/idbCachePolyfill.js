@@ -69,17 +69,22 @@
 
     Cache.prototype.put = function(request, response) {
         request = _castToRequest(request);
+
+        // See https://code.google.com/p/chromium/issues/detail?id=403785
+        var extraResponseHeaders = {};
+        if (request.mode === 'cors') {
+          extraResponseHeaders['Access-Control-Allow-Origin'] = '*';
+        }
+
         var cache = this._name;
-        return idbCacheUtils.writeResponseTo(cache,
-                                             _key(cache, request),
-                                             response);
+        return idbCacheUtils.writeResponseTo(cache, _key(cache, request), response, extraResponseHeaders);
     };
 
     Cache.prototype.add = function(request) {
         var put = this.put.bind(this);
         return fetch(request).then(
           function(response) { return put(request, response); },
-          err
+          function(error) { throw error; }
         );
     };
 

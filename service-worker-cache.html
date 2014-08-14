@@ -52,7 +52,9 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
   <template>
     <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
                   on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
-                  on-core-signal-service-worker-status-request="{{handleStatusRequest}}">
+                  on-core-signal-service-worker-status-request="{{handleStatusRequest}}"
+                  on-core-signal-service-worker-register-fallback-url-request="{{handleRegisterFallbackUrlRequest}}"
+                  on-core-signal-service-worker-register-fallback-data-request="{{handleRegisterFallbackDataRequest}}">
     </core-signals>
 
     <template if="{{ unsupported }}">
@@ -153,7 +155,6 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
           if (this.serviceWorker) {
             var messageChannel = new MessageChannel();
             messageChannel.port1.onmessage = function(e) {
-              console.log('onmessage; data is', e.data);
               resolve(e);
             };
 
@@ -185,7 +186,6 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
        * @param {string} url The URL to be cached. It can be either absolute or relative to `baseUrl`.
        */
       cache: function(url) {
-        console.log('cache', url);
         this._sendMessage({
           command: 'cache',
           url: url
@@ -228,6 +228,42 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
         }.bind(this));
       },
 
+      /**
+       * The `registerFallbackUrl` method registers an alternative URL that will be used when `url` can't be fetched via the cache or network.
+       *
+       * It will fire a `service-worker-response` `<core-signal>` when complete.
+       *
+       * @method registerFallbackUrl
+       * @param {string} url The URL that is normally accessed. It can be either absolute or relative to `baseUrl`.
+       * @param {string} fallbackUrl The URL to use when `url` is unreachable. It can be either absolute or relative to `baseUrl`.
+       */
+      registerFallbackUrl: function(url, fallbackUrl) {
+        this._sendMessage({
+          command: 'registerFallbackUrl',
+          url: url,
+          fallbackUrl: fallbackUrl
+        }).then(function(e) {
+          this._fireResponseSignal(e.data);
+        }.bind(this));
+      },
+
+      /**
+       * The `registerFallbackData` method registers data that will be returned when `url` can't be fetched via the cache or network.
+       *
+       * CURRENTLY NON-FUNCTIONAL.
+       *
+       * @method registerFallbackData
+       * @param {string} url The URL that is normally accessed. It can be either absolute or relative to `baseUrl`.
+       * @param {string} fallbackData The data to use when `url` is unreachable.
+       */
+      registerFallbackData: function(url, fallbackData) {
+        this._sendMessage({
+          command: 'registerFallbackData',
+          url: url,
+          fallbackData: fallbackData
+        });
+      },
+
       _fireResponseSignal: function(data) {
         this.asyncFire('core-signal', {
           name: 'service-worker-response',
@@ -245,6 +281,14 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 
       handleStatusRequest: function(e) {
         this.status(e.detail);
+      },
+
+      handleRegisterFallbackUrlRequest: function(e) {
+        this.registerFallbackUrl(e.detail.url, e.detail.fallbackUrl);
+      },
+
+      handleRegisterFallbackDataRequest: function(e) {
+        this.registerFallbackData(e.detail.url, e.detail.fallbackData);
       },
 
       urlsChanged: function() {
@@ -270,9 +314,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
       ready: function() {
         if ('serviceWorker' in navigator) {
           var serviceWorkerWithParams = 'service-worker.js?baseUrl=' + this.baseUrl + '&version=' + this.version;
-          navigator.serviceWorker.register(serviceWorkerWithParams, {
-            scope: this.scope
-          }).then(function(serviceWorker) {
+          navigator.serviceWorker.register(serviceWorkerWithParams).then(function(serviceWorker) {
             this.serviceWorker = serviceWorker;
             this.asyncFire('service-worker-cache-initialized');
             this.initialized = true;

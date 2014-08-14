@@ -28,7 +28,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cacheable-resource" attributes="url cached auto">
+<polymer-element name="service-worker-cacheable-resource" attributes="auto cached fallbackData fallbackUrl url">
   <template>
     <core-signals on-core-signal-service-worker-response="{{handleServiceWorkerResponse}}"></core-signals>
   </template>
@@ -56,6 +56,37 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
       cached: false,
 
       /**
+       * Provides an optional `fallbackUrl` that will be used when `url` can't be fetched via the cache or network.
+       *
+       * If set, the resource at `fallbackUrl` will be automatically cached.
+       *
+       * Defaults to ''.
+       *
+       * @property fallbackUrl
+       * @type string
+       * @default ''
+       */
+      fallbackUrl: '',
+
+      /**
+       * Provides an optional `fallbackData` that will be used when `url` can't be fetched via the cache or network.
+       *
+       * The response will have Content-Type: application/json and the body will consist of the
+       * JSON-serialized version of `fallbackData`.
+       *
+       * Note that if both `fallbackUrl` and `fallbackData` are set, `fallbackUrl` takes precedence.
+       *
+       * CURRENTLY NON-FUNCTIONAL.
+       *
+       * Defaults to null.
+       *
+       * @property fallbackData
+       * @type object
+       * @default null
+       */
+      fallbackData: null,
+
+      /**
        * Indicates whether the resource is automatically cached.
        *
        * If `false`, the resource can be manually cached via the `cache()` method.
@@ -74,6 +105,28 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
         } else {
           this.status();
         }
+      },
+
+      fallbackUrlChanged: function() {
+        this.asyncFire('core-signal', {
+          name: 'service-worker-register-fallback-url-request',
+          data: {
+            url: this.url,
+            fallbackUrl: this.fallbackUrl
+          }
+        });
+      },
+
+      fallbackDataChanged: function() {
+        this.asyncFire('core-signal', {
+          name: 'service-worker-register-fallback-data-request',
+          data: {
+            url: this.url,
+            fallbackData: this.fallbackData
+          }
+        });
+
+        this.cached = true;
       },
 
       autoChanged: function() {
@@ -119,7 +172,7 @@ This will automatically cache the resource at `"path/to/file"` and publish the c
       },
 
       handleServiceWorkerResponse: function(e) {
-        if (e.detail.url == this.url) {
+        if ((e.detail.url == this.url || e.detail.url == this.fallbackUrl) && 'cached' in e.detail) {
           this.cached = e.detail.cached;
         }
       }

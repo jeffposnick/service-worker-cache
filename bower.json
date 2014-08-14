@@ -13,6 +13,7 @@
     "**/.*"
   ],
   "dependencies": {
+    "core-ajax": "Polymer/core-ajax#~0.3.5",
     "core-icon": "Polymer/core-icon#~0.3.5",
     "core-icon-button": "Polymer/core-icon-button#~0.3.5",
     "core-signals": "Polymer/core-signals#~0.3.5",

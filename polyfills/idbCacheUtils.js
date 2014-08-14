@@ -308,8 +308,8 @@
         return response;
     };
 
-    var objFromResponse = function(response) {
-        var headers = {};
+    var objFromResponse = function(response, extraHeaders) {
+        var headers = extraHeaders || {};
         response.headers.forEach(function(v, k) {
             headers[k] = v;
         });
@@ -344,8 +344,8 @@
         );
     };
 
-    var writeResponseTo = function(cacheName, key, response) {
-        return objFromResponse(response).then(function(obj) {
+    var writeResponseTo = function(cacheName, key, response, extraHeaders) {
+        return objFromResponse(response, extraHeaders).then(function(obj) {
             return writeTo(cacheName, key, obj);
         });
     };
