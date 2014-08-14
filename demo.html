@@ -29,6 +29,13 @@
         margin: 0;
         padding: 0;
       }
+
+      #demo {
+        background-color: #e5e5e5;
+        margin: 1em;
+        padding: 1em;
+        border-radius: 1em;
+      }
     </style>
   </head>
 
@@ -41,49 +48,61 @@
       </service-worker-cache>
 
       <template if="{{ initialized }}">
-        <ul>
-          <template repeat="{{ url, i in urls }}">
-            <li>
-              <service-worker-cacheable-resource url="{{url}}"
-                                                 cached="{{cached[url]}}"
-                                                 auto?="{{ i == 2 }}">
-              </service-worker-cacheable-resource>
+        <div id="demo">
+          <header>Some Local Files:</header>
+          <content>
+            <ul>
+              <template repeat="{{ url, i in urls }}">
+                <li>
+                  <service-worker-cacheable-resource url="{{url}}"
+                                                     cached="{{cached[url]}}"
+                                                     auto?="{{ i == 2 }}">
+                  </service-worker-cacheable-resource>
 
-              <template if="{{ cached[url] }}">
-                <core-icon-button icon="cloud-done"
-                                  title="Cached; press to remove."
-                                  data-url="{{url}}"
-                                  on-tap="{{handleUncacheTap}}">
-                </core-icon-button>
+                  <template if="{{ cached[url] }}">
+                    <core-icon-button icon="cloud-done"
+                                      title="Cached; press to remove."
+                                      data-url="{{url}}"
+                                      on-tap="{{handleUncacheTap}}">
+                    </core-icon-button>
+                  </template>
+
+                  <template if="{{ !cached[url] }}">
+                    <core-icon-button icon="cloud-off"
+                                      title="Not cached; press to download."
+                                      data-url="{{url}}"
+                                      on-tap="{{handleCacheTap}}">
+                    </core-icon-button>
+                  </template>
+
+                  <a href="{{url}}">{{url}}</a>
+                </li>
               </template>
+            </ul>
+          </content>
 
-              <template if="{{ !cached[url] }}">
-                <core-icon-button icon="cloud-off"
-                                  title="Not cached; press to download."
-                                  data-url="{{url}}"
-                                  on-tap="{{handleCacheTap}}">
-                </core-icon-button>
-              </template>
-
-              <a href="{{url}}">{{url}}</a>
-            </li>
+          <service-worker-cacheable-resource url="{{youtubeUrl}}"
+                                             fallbackUrl="{{youtubeFallbackUrl}}"
+                                             cached="{{youtubeCached}}">
+          </service-worker-cacheable-resource>
+          <template if="{{ youtubeCached }}">
+            <core-ajax auto
+                       url="{{youtubeUrl}}"
+                       handleAs="json"
+                       response="{{youtube}}">
+            </core-ajax>
           </template>
-        </ul>
-
-        <service-worker-cacheable-resource url="{{weatherUrl}}"
-                                           fallbackUrl="{{weatherFallbackUrl}}"
-                                           cached="{{weatherCached}}">
-        </service-worker-cacheable-resource>
-        <template if="{{ weatherCached }}">
-          <core-ajax auto
-                     url="{{weatherUrl}}"
-                     handleAs="json"
-                     response="{{weather}}">
-          </core-ajax>
-        </template>
-        <template if="{{ weather }}">
-          <p>Oh, and by the way, it's {{weather.main.temp}} °F in {{weather.name}} right now.</p>
-        </template>
+          <template if="{{ youtube }}">
+            <header>Some YouTube API Results:</header>
+            <content>
+              <ul>
+                <template repeat="{{ video in youtube.data.items}}">
+                  <li><a href="https://youtu.be/{{video.id}}">{{video.title}}</a></li>
+                </template>
+              </ul>
+            </content>
+          </template>
+        </div>
       </template>
     </template>
 
@@ -95,8 +114,8 @@
       }
 
       var pageTemplate = document.querySelector('#page-template');
-      pageTemplate.weatherUrl = 'http://api.openweathermap.org/data/2.5/weather?q=Brooklyn&units=imperial';
-      pageTemplate.weatherFallbackUrl = 'dummy-files/weather.json';
+      pageTemplate.youtubeUrl = 'https://gdata.youtube.com/feeds/api/users/GoogleDevelopers/uploads?v=2&alt=jsonc&max-results=5';
+      pageTemplate.youtubeFallbackUrl = 'dummy-files/uploads.json';
 
       pageTemplate.urls = [
         'dummy-files/file1.txt',
