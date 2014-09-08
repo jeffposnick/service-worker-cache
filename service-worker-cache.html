@@ -153,6 +153,12 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 
       serviceWorker: null,
 
+      serviceWorkerChanged: function() {
+        console.log('sw is!', this.serviceWorker);
+        this.asyncFire('service-worker-cache-initialized');
+        this.initialized = true;
+      },
+
       _sendMessage: function(payload) {
         return new Promise(function(resolve, reject) {
           if (this.serviceWorker) {
@@ -302,25 +308,43 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 
       ready: function() {
         if ('serviceWorker' in navigator) {
-          var serviceWorkerWithParams = 'service-worker.js?baseUrl=' + encodeURIComponent(this.baseUrl);
-          serviceWorkerWithParams += '&version=' + encodeURIComponent(this.version);
-          if (this.precacheUrls) {
-            if (!Array.isArray(this.precacheUrls)) {
-              this.precacheUrls = [this.precacheUrls];
-            }
-            serviceWorkerWithParams += '&precache=' + this.precacheUrls.map(function(url) {
-              return encodeURIComponent(url);
-            }).join(',');
-          }
+          var params = {
+            baseUrl: this.baseUrl,
+            version: this.version,
+            precache: this.precacheUrls
+          };
+          var serviceWorkerWithParams = 'service-worker.js?' + this.serializeUrlParams(params);
 
-          navigator.serviceWorker.register(serviceWorkerWithParams).then(function(serviceWorker) {
-            this.serviceWorker = serviceWorker;
-            this.asyncFire('service-worker-cache-initialized');
-            this.initialized = true;
-          }.bind(this));
+          navigator.serviceWorker.register(serviceWorkerWithParams).then(
+            function(registration) {
+              this.serviceWorker = registration.active;
+              if(this.serviceWorker == null) {
+                registration.installing.addEventListener('statechange', function(e) {
+                  console.log('state is', e.target.state);
+                  if (e.target.state == 'activated') {
+                    this.serviceWorker = e.target;
+                  } else if (e.target.state == 'redundant') {
+                    this.serviceWorker = navigator.serviceWorker.controller;
+                  }
+                }.bind(this));
+              }
+            }.bind(this),
+            function(error) {
+              console.error(error);
+            }.bind(this)
+          );
         } else {
           this.unsupported = true;
         }
+      },
+
+      serializeUrlParams: function(params) {
+        return Object.keys(params).map(function(key) {
+          // encodeURIComponent(['a', 'b']) => 'a%2Cb',
+          // so this will still work when the values are Arrays.
+          // TODO: It won't work if the values in the Arrays have ',' characters in them.
+          return encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
+        }).join('&');
       }
     });
   </script>
