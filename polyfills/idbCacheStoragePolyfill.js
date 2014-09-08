@@ -32,7 +32,6 @@
     //      feature.
 
     var CacheStorage = function() {
-        // log("custom cache storage");
         var caches = this.cachesByName = {};
         // Fetch a listing of all the cache objects and create front
         // objects for them here.
@@ -126,10 +125,11 @@
         });
     };
 
-    if (!global.caches ||
+    /*if (!global.caches ||
         !global.caches.constructor ||
          global.caches.constructor.
             toString().indexOf("{} [native code] }") == -1) {
         global.caches = new CacheStorage();
-    }
+    }*/
+    global.cachesPf = new CacheStorage();
 }(self));  // window or worker global scope.

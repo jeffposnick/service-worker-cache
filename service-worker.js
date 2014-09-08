@@ -1,8 +1,12 @@
 var CACHE_PREFIX = 'cache-v';
-// By default, use the same directory that hosts this service worker as the base URL.
-var baseUrl = new URL('./', self.location.href);
-self.version = '1';
-var precacheUrls = [];
+var DEFAULT_BASE_URL = './';
+var DEFAULT_VERSION = 1;
+
+var precacheUrls;
+var baseUrl;
+var version;
+
+// TODO: This shouldn't be here. Don't store global state which will be lost across SW restarts.
 var urlToFallbackUrl = {};
 var urlToFallbackData = {};
 
@@ -12,34 +16,25 @@ function importPolyFills() {
   importScripts('polyfills/idbCacheStoragePolyfill.js');
 }
 
-function queryParamValue(param) {
-  var regex = new RegExp(param + '=([^&]+)');
-  var match = location.search.match(regex);
-  if (match) {
-    return match[1];
-  }
-  return null;
+function deserializeUrlParams(queryString) {
+  // Map is a collections class which takes an Array of Arrays as a constructor argument.
+  // It's different from Array.map(), which is a method that applies a function to each
+  // element in an Array, returning the result as a new Array.
+  // Delightfully/confusingly, we're using both here.
+  return new Map(queryString.split('&').map(function(keyValuePair) {
+    return keyValuePair.split('=').map(decodeURIComponent);
+  }));
 }
 
 function initFromUrlParams() {
-  // Allow for overriding the default baseUrl via the baseUrl query parameter
-  // passed as part of this service worker's URL.
-  var baseUrlParam = queryParamValue('baseUrl');
-  if (baseUrlParam) {
-    baseUrl = new URL(decodeURIComponent(baseUrlParam), self.location.href).toString();
-  }
+  var params = deserializeUrlParams(location.search.substring(1));
 
-  var versionUrlParam = queryParamValue('version');
-  if (versionUrlParam) {
-    self.version = decodeURIComponent(versionUrlParam);
-  }
-
-  var precacheParam = queryParamValue('precache');
-  if (precacheParam) {
-    precacheUrls = precacheParam.split(',').map(function(url) {
-      return decodeURIComponent(url);
-    });
-  }
+  // Allow some defaults to be overridden via URL parameters.
+  // TODO: Confirm that this is called even when this isn't the initial install. Otherwise, the
+  // values should be saved to IndexedDB.
+  baseUrl = new URL(params.has('baseUrl') ? params.get(baseUrl) : DEFAULT_BASE_URL, self.location.href).toString();
+  version = params.has('version') ? params.get('version') : DEFAULT_VERSION;
+  precacheUrls = params.has('precache') ? params.get('precache').split(',') : [];
 }
 
 function absoluteUrl(url) {
@@ -51,27 +46,24 @@ function absoluteUrl(url) {
 function addEventListeners() {
   self.addEventListener('install', function(e) {
     // Pre-cache everything in precacheUrls, and wait until that's done to complete the install.
-    e.waitUntil(caches.create(CACHE_PREFIX + self.version).then(
-      function(cache) {
-        return Promise.all(precacheUrls.map(function(url) {
-          return cache.add(absoluteUrl(url));
-        }));
-      }
-    ));
+    e.waitUntil(cachesPf.create(CACHE_PREFIX + self.version).then(function(cache) {
+      return Promise.all(precacheUrls.map(function(url) {
+        return cache.add(absoluteUrl(url));
+      }));
+    }));
   });
 
   self.addEventListener('fetch', function(e) {
     var request = e.request;
-    console.log('onfetch; request url is', request.url);
 
     // Basic read-through caching.
     e.respondWith(
-      caches.match(request, CACHE_PREFIX + self.version).then(function(response) {
+      cachesPf.match(request, CACHE_PREFIX + self.version).then(function(response) {
         console.log('  cache hit!');
         return response;
       }, function() {
         // we didn't have it in the cache, so add it to the cache and return it
-        return caches.get(CACHE_PREFIX + self.version).then(function(cache) {
+        return cachesPf.get(CACHE_PREFIX + self.version).then(function(cache) {
           console.log('  cache miss; attempting to fetch and cache at runtime...');
 
           return cache.add(request.url).then(
@@ -97,7 +89,7 @@ function addEventListeners() {
   self.addEventListener('message', function(e) {
     console.log('onmessage; data is', e.data);
 
-    caches.get(CACHE_PREFIX + self.version).then(function(cache) {
+    cachesPf.get(CACHE_PREFIX + self.version).then(function(cache) {
       var url = absoluteUrl(e.data.url);
       switch (e.data.command) {
         case 'status':
