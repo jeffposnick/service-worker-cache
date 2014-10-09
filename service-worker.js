@@ -11,9 +11,7 @@ var urlToFallbackUrl = {};
 var urlToFallbackData = {};
 
 function importPolyFills() {
-  importScripts('polyfills/idbCacheUtils.js');
-  importScripts('polyfills/idbCachePolyfill.js');
-  importScripts('polyfills/idbCacheStoragePolyfill.js');
+  importScripts('polyfills/serviceworker-cache-polyfill.js');
 }
 
 function deserializeUrlParams(queryString) {
@@ -35,53 +33,80 @@ function absoluteUrl(url) {
   return new URL(url, baseUrl).toString();
 }
 
+// Take an array of promises and return a new promise that will resolve with the value of the first
+// original promise that resolves. If all original promises are rejected, return a rejected promise.
+function any(promises) {
+  var count = promises.length;
+  var errors = [];
+  return new Promise(function (resolve, reject) {
+    promises.forEach(function(promise) {
+      promise.then(function (result) {
+        resolve(result);
+      }, function (error) {
+        count--;
+        errors.push(error);
+        if (count === 0) {
+          reject(errors);
+        }
+      });
+    });
+  });
+};
+
+function fetchRequest(cache, request) {
+  var fetchPromise = fetch(request).then(function (response) {
+    cache.put(request, response.clone());
+    return response;
+  }, function(error) {
+    console.log('Fetch error: ', error);
+    if (request.url in urlToFallbackUrl) {
+      console.log('  fetch failed; falling back to', urlToFallbackUrl[request.url]);
+      return fetch(urlToFallbackUrl[request.url]);
+      // TODO: Fall back to the urlToFallbackData[request.url] if present.
+    } else {
+      console.log('  fetch failed; no fallback available.');
+      throw new Error('NotFoundError');
+    }
+  });
+
+  var cachePromise = cache.match(request).then(function(response) {
+    if (response) {
+      console.log('  cache hit!');
+      return response;
+    }
+    throw new Error('NotFoundError');
+  });
+
+  return any([fetchPromise, cachePromise]);
+}
+
 function addEventListeners() {
+  var cacheName = CACHE_PREFIX + self.version;
+  var getCache = cachesPolyfill.get(cacheName);
   self.addEventListener('install', function(e) {
     // Pre-cache everything in precacheUrls, and wait until that's done to complete the install.
-    e.waitUntil(cachesPf.create(CACHE_PREFIX + self.version).then(function(cache) {
-      return Promise.all(precacheUrls.map(function(url) {
-        return cache.add(absoluteUrl(url));
-      }));
-    }));
+    e.waitUntil(
+      getCache.then(function(cache) {
+        return cache || cachesPolyfill.create(cacheName);
+      }).then(function(cache) {
+        return cache.addAll(precacheUrls.map(absoluteUrl));
+      })
+    );
   });
 
   self.addEventListener('fetch', function(e) {
     var request = e.request;
 
     // Basic read-through caching.
-    e.respondWith(
-      cachesPf.match(request, CACHE_PREFIX + self.version).then(function(response) {
-        console.log('  cache hit!');
-        return response;
-      }, function() {
-        // we didn't have it in the cache, so add it to the cache and return it
-        return cachesPf.get(CACHE_PREFIX + self.version).then(function(cache) {
-          console.log('  cache miss; attempting to fetch and cache at runtime...');
-
-          return cache.add(request.url).then(
-            function(response) {
-              console.log('  fetch successful.');
-              return response;
-            },
-            function() {
-              if (request.url in urlToFallbackUrl) {
-                console.log('  fetch failed; falling back to', urlToFallbackUrl[request.url]);
-                return fetch(urlToFallbackUrl[request.url]);
-                // TODO: Fall back to the urlToFallbackData[request.url] if present.
-              } else {
-                console.log('  fetch failed; no fallback available.');
-              }
-            }
-          );
-        });
-      })
-    );
+    e.respondWith(getCache.then(function (cache) {
+      return fetchRequest(cache, request)
+    }));
   });
 
   self.addEventListener('message', function(e) {
     console.log('onmessage; data is', e.data);
 
-    cachesPf.get(CACHE_PREFIX + self.version).then(function(cache) {
+    getCache.then(function(cache) {
       var url = absoluteUrl(e.data.url);
       switch (e.data.command) {
         case 'status':
