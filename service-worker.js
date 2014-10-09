@@ -22,6 +22,8 @@ function initFromUrlParams() {
   var params = deserializeUrlParams(location.search.substring(1));
 
   // Allow some defaults to be overridden via URL parameters.
+  // TODO: The base URL stuff is wrong. This is going to make everything relative to the SWs
+  // location, not the location of the page making the request.
   baseUrl = new URL(params.baseUrl || DEFAULT_BASE_URL, self.location.href).toString();
   version = params.version || DEFAULT_VERSION;
   precacheUrls = params.precache || [];
@@ -85,6 +87,9 @@ function addEventListeners() {
   var getCache = cachesPolyfill.get(cacheName);
   self.addEventListener('install', function(e) {
     // Pre-cache everything in precacheUrls, and wait until that's done to complete the install.
+    // TODO: pre-caching doesn't work as you might expect. If you change your HTML page to have a
+    // different list of URLs, those URLs won't actually be pre-cached because the SW is already
+    // installed.
     e.waitUntil(
       getCache.then(function(cache) {
         return cache || cachesPolyfill.create(cacheName);
