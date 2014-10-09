@@ -313,9 +313,12 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
             version: this.version,
             precache: this.precacheUrls
           };
-          var serviceWorkerWithParams = 'service-worker.js?' + this.serializeUrlParams(params);
+          var currentScript = getCurrentScript();
+          var serviceWorkerURL = new URL(currentScript);
+          serviceWorkerURL.search = '?' + this.serializeUrlParams(params);
+          serviceWorkerURL.pathname = serviceWorkerURL.pathname.substring(0, serviceWorkerURL.pathname.lastIndexOf('/') + 1) + 'service-worker.js';
 
-          navigator.serviceWorker.register(serviceWorkerWithParams).then(
+          navigator.serviceWorker.register(serviceWorkerURL.toString()).then(
             function(registration) {
               this.serviceWorker = registration.active;
               if(this.serviceWorker == null) {
@@ -342,5 +345,19 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
         return encodeURIComponent(JSON.stringify(params));
       }
     });
+
+    function getCurrentScript() {
+      //TODO: Find or create a reusable module that does this generically
+      try {
+        (0)();
+      } catch (exception) {
+        var currentScript = exception['stack'];
+        currentScript = currentScript.split("\n")[1];
+        currentScript = currentScript.substring(currentScript.indexOf('(') + 1, currentScript.lastIndexOf(':'));
+        currentScript = currentScript.substring(0, currentScript.lastIndexOf(":"));
+        return currentScript;
+      }
+    };
+
   </script>
 </polymer-element>
