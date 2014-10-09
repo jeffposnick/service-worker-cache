@@ -339,12 +339,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
       },
 
       serializeUrlParams: function(params) {
-        return Object.keys(params).map(function(key) {
-          // encodeURIComponent(['a', 'b']) => 'a%2Cb',
-          // so this will still work when the values are Arrays.
-          // TODO: It won't work if the values in the Arrays have ',' characters in them.
-          return encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
-        }).join('&');
+        return encodeURIComponent(JSON.stringify(params));
       }
     });
   </script>

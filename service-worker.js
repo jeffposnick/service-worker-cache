@@ -17,24 +17,16 @@ function importPolyFills() {
 }
 
 function deserializeUrlParams(queryString) {
-  // Map is a collections class which takes an Array of Arrays as a constructor argument.
-  // It's different from Array.map(), which is a method that applies a function to each
-  // element in an Array, returning the result as a new Array.
-  // Delightfully/confusingly, we're using both here.
-  return new Map(queryString.split('&').map(function(keyValuePair) {
-    return keyValuePair.split('=').map(decodeURIComponent);
-  }));
+  return JSON.parse(decodeURIComponent(queryString));
 }
 
 function initFromUrlParams() {
   var params = deserializeUrlParams(location.search.substring(1));
 
   // Allow some defaults to be overridden via URL parameters.
-  // TODO: Confirm that this is called even when this isn't the initial install. Otherwise, the
-  // values should be saved to IndexedDB.
-  baseUrl = new URL(params.has('baseUrl') ? params.get(baseUrl) : DEFAULT_BASE_URL, self.location.href).toString();
-  version = params.has('version') ? params.get('version') : DEFAULT_VERSION;
-  precacheUrls = params.has('precache') ? params.get('precache').split(',') : [];
+  baseUrl = new URL(params.baseUrl || DEFAULT_BASE_URL, self.location.href).toString();
+  version = params.version || DEFAULT_VERSION;
+  precacheUrls = params.precache || [];
 }
 
 function absoluteUrl(url) {
