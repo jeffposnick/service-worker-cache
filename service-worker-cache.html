@@ -65,6 +65,9 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
   </template>
 
   <script>
+    // This needs to be directly in the <script> tag as document.currentScript is not valid inside
+    // callbacks.
+    var currentScript = document.currentScript.baseURI;
     Polymer('service-worker-cache', {
       /**
        * The `scope` corresponds to the paths that the service worker handles.
@@ -313,9 +316,11 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
             version: this.version,
             precache: this.precacheUrls
           };
-          var serviceWorkerWithParams = 'service-worker.js?' + this.serializeUrlParams(params);
+          var serviceWorkerURL = new URL(currentScript);
+          serviceWorkerURL.search = '?' + this.serializeUrlParams(params);
+          serviceWorkerURL.pathname = serviceWorkerURL.pathname.substring(0, serviceWorkerURL.pathname.lastIndexOf('/') + 1) + 'service-worker.js';
 
-          navigator.serviceWorker.register(serviceWorkerWithParams).then(
+          navigator.serviceWorker.register(serviceWorkerURL.toString()).then(
             function(registration) {
               this.serviceWorker = registration.active;
               if(this.serviceWorker == null) {
@@ -339,12 +344,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
       },
 
       serializeUrlParams: function(params) {
-        return Object.keys(params).map(function(key) {
-          // encodeURIComponent(['a', 'b']) => 'a%2Cb',
-          // so this will still work when the values are Arrays.
-          // TODO: It won't work if the values in the Arrays have ',' characters in them.
-          return encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
-        }).join('&');
+        return encodeURIComponent(JSON.stringify(params));
       }
     });
   </script>
