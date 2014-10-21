@@ -40,11 +40,11 @@ function absoluteUrl(url) {
 function any(promises) {
   var count = promises.length;
   var errors = [];
-  return new Promise(function (resolve, reject) {
+  return new Promise(function(resolve, reject) {
     promises.forEach(function(promise) {
-      promise.then(function (result) {
+      promise.then(function(result) {
         resolve(result);
-      }, function (error) {
+      }, function(error) {
         count--;
         errors.push(error);
         if (count === 0) {
@@ -53,11 +53,12 @@ function any(promises) {
       });
     });
   });
-};
+}
 
 function fetchRequest(cache, request) {
-  var fetchPromise = fetch(request).then(function (response) {
-    cache.put(request, response.clone());
+  var requestCopy = request.clone();
+  var fetchPromise = fetch(requestCopy).then(function(response) {
+    cache.put(requestCopy, response.clone());
     return response;
   }, function(error) {
     console.log('Fetch error: ', error);
@@ -71,7 +72,7 @@ function fetchRequest(cache, request) {
     }
   });
 
-  var cachePromise = cache.match(request).then(function(response) {
+  var cachePromise = cache.match(request.clone()).then(function(response) {
     if (response) {
       console.log('  cache hit!');
       return response;
@@ -103,8 +104,8 @@ function addEventListeners() {
     var request = e.request;
 
     // Basic read-through caching.
-    e.respondWith(getCache.then(function (cache) {
-      return fetchRequest(cache, request)
+    e.respondWith(getCache.then(function(cache) {
+      return fetchRequest(cache, request);
     }));
   });
 
