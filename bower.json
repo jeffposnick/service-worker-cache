@@ -13,6 +13,7 @@
     "**/.*"
   ],
   "dependencies": {
+    "cache-polyfill": "coonsta/cache-polyfill#master",
     "core-ajax": "Polymer/core-ajax#~0.5.0",
     "core-icon": "Polymer/core-icon#~0.5.0",
     "core-icon-button": "Polymer/core-icon-button#~0.5.0",

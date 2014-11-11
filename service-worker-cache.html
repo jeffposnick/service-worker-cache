@@ -315,7 +315,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
           };
           var serviceWorkerWithParams = 'service-worker.js?' + this.serializeUrlParams(params);
 
-          navigator.serviceWorker.register(serviceWorkerWithParams).then(
+          navigator.serviceWorker.register(serviceWorkerWithParams, {scope: this.scope}).then(
             function(registration) {
               this.serviceWorker = registration.active;
               if(this.serviceWorker == null) {
