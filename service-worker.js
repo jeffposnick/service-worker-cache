@@ -11,9 +11,7 @@ var urlToFallbackUrl = {};
 var urlToFallbackData = {};
 
 function importPolyFills() {
-  importScripts('polyfills/idbCacheUtils.js');
-  importScripts('polyfills/idbCachePolyfill.js');
-  importScripts('polyfills/idbCacheStoragePolyfill.js');
+  importScripts('../cache-polyfill/dist/serviceworker-cache-polyfill.js');
 }
 
 function deserializeUrlParams(queryString) {
@@ -46,10 +44,8 @@ function absoluteUrl(url) {
 function addEventListeners() {
   self.addEventListener('install', function(e) {
     // Pre-cache everything in precacheUrls, and wait until that's done to complete the install.
-    e.waitUntil(cachesPf.create(CACHE_PREFIX + self.version).then(function(cache) {
-      return Promise.all(precacheUrls.map(function(url) {
-        return cache.add(absoluteUrl(url));
-      }));
+    e.waitUntil(caches.open(CACHE_PREFIX + self.version).then(function(cache) {
+      return cache.addAll(precacheUrls.map(absoluteUrl));
     }));
   });
 
@@ -58,20 +54,20 @@ function addEventListeners() {
 
     // Basic read-through caching.
     e.respondWith(
-      cachesPf.match(request, CACHE_PREFIX + self.version).then(function(response) {
-        console.log('  cache hit!');
-        return response;
-      }, function() {
-        // we didn't have it in the cache, so add it to the cache and return it
-        return cachesPf.get(CACHE_PREFIX + self.version).then(function(cache) {
-          console.log('  cache miss; attempting to fetch and cache at runtime...');
+      caches.match(request).then(function(response) {
+        if (response) {
+          console.log('  cache hit!');
+          return response;
+        } else {
+          // we didn't have it in the cache, so add it to the cache and return it
+          return caches.open(CACHE_PREFIX + self.version).then(function(cache) {
+            console.log('  cache miss; attempting to fetch and cache at runtime...');
 
-          return cache.add(request.url).then(
-            function(response) {
+            fetch(request.clone()).then(function(response) {
               console.log('  fetch successful.');
+              cache.put(request, response.clone());
               return response;
-            },
-            function() {
+            }, function() {
               if (request.url in urlToFallbackUrl) {
                 console.log('  fetch failed; falling back to', urlToFallbackUrl[request.url]);
                 return fetch(urlToFallbackUrl[request.url]);
@@ -79,9 +75,9 @@ function addEventListeners() {
               } else {
                 console.log('  fetch failed; no fallback available.');
               }
-            }
-          );
-        });
+            });
+          });
+        }
       })
     );
   });
@@ -89,7 +85,7 @@ function addEventListeners() {
   self.addEventListener('message', function(e) {
     console.log('onmessage; data is', e.data);
 
-    cachesPf.get(CACHE_PREFIX + self.version).then(function(cache) {
+    caches.open(CACHE_PREFIX + self.version).then(function(cache) {
       var url = absoluteUrl(e.data.url);
       switch (e.data.command) {
         case 'status':
