@@ -44,7 +44,8 @@
 
     <template id="page-template" is="auto-binding">
       <service-worker-cache initialized="{{initialized}}"
-                            precacheUrls="{{precacheUrls}}">
+                            precacheUrls="{{precacheUrls}}"
+                            workerUrl="./service-worker.js">
       </service-worker-cache>
 
       <template if="{{ initialized }}">
