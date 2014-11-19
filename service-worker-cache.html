@@ -48,7 +48,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
 @status alpha
 @homepage http://jeffposnick.github.io/service-worker-cache
 -->
-<polymer-element name="service-worker-cache" attributes="baseUrl initialized precacheUrls scope version">
+<polymer-element name="service-worker-cache" attributes="baseUrl initialized precacheUrls scope version workerUrl">
   <template>
     <core-signals on-core-signal-service-worker-cache-request="{{handleCacheRequest}}"
                   on-core-signal-service-worker-uncache-request="{{handleUncacheRequest}}"
@@ -76,6 +76,17 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
        * @default './'
        */
       scope: './',
+
+      /**
+       * The `workerUrl` property specifies the location to load the worker script from.
+       *
+       * Defaults to `/service-worker.js`.
+       *
+       * @property workerUrl
+       * @type string
+       * @default '/service-worker.js'
+       */
+      workerUrl: '/service-worker.js',
 
       /**
        * The `baseUrl` is joined with relative URLs for resources to construct an absolute URL.
@@ -313,7 +324,7 @@ already cached. See the documentation for [`<service-worker-cacheable-resource>`
             version: this.version,
             precache: this.precacheUrls
           };
-          var serviceWorkerWithParams = 'service-worker.js?' + this.serializeUrlParams(params);
+          var serviceWorkerWithParams = this.workerUrl + '?' + this.serializeUrlParams(params);
 
           navigator.serviceWorker.register(serviceWorkerWithParams, {scope: this.scope}).then(
             function(registration) {
