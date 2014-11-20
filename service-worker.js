@@ -55,9 +55,7 @@ function checkExpire(cache, request, response) {
     cache.delete(request);
     return fetchAndStore(request);
   } else {
-    return new Promise(function(resolve){
-      return resolve(response);
-    });
+    return response;
   }
 }
 
