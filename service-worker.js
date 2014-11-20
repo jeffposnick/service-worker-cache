@@ -7,16 +7,6 @@ var version;
 var networkCacheName = 'network:' + self.scope + ':';
 var fallbackCacheName = 'fallback:' + self.scope + ':';
 
-importScripts('idb.js');
-
-function getDB() {
-  return new IDBHelper('expire', 1, function(db, oldVersion) {
-    if (oldVersion < 1) {
-      db.createObjectStore('assets');
-    }
-  });
-}
-
 function importPolyFills() {
   importScripts('../cache-polyfill/dist/serviceworker-cache-polyfill.js');
 }
@@ -50,25 +40,25 @@ function getFallbackCache() {
   return caches.open(fallbackCacheName);
 }
 
-function setExpire(url, cacheHeader) {
-  var maxAge = parseInt(cacheHeader.match(/max-age=(\d+)/) || []).pop(), 10);
-  if(maxAge){
-    return idb.put('assets', url, { timestamp: new Date().getTime() + maxAge * 1000 });
+function isExpired(response) {
+  var cacheControl = response.headers.get('cache-control');
+  var date = response.headers.get('date');
+  if(date){
+    var cachedDate = new Date(Date.parse(date));
+    var maxAge = parseInt(cacheHeader.match(/max-age=(\d+)/) || []).pop(), 10);
   }
+  return maxAge && cachedDate.getTime() + maxAge * 1000 < new Date().getTime();
 }
 
-function applyExpire(cache, request, response) {
-  return idb.get('assets', request.url).then(function(expire) {
-    if(expire && expire.timestamp < new Date().getTime()){
-      idb.delete('assets', request.url);
-      cache.delete(request);
-      return fetchAndStore(request);
-    } else {
-      return new Promise(function(resolve){
-        return resolve(response);
-      });
-    }
-  });
+function checkExpire(cache, request, response) {
+  if(isExpired(response) {
+    cache.delete(request);
+    return fetchAndStore(request);
+  } else {
+    return new Promise(function(resolve){
+      return resolve(response);
+    });
+  }
 }
 
 function fetchAndStore(request) {
@@ -77,7 +67,6 @@ function fetchAndStore(request) {
       return Promise.reject(new Error(response.statusText));
     }
     console.log('  fetch successful.');
-    setExpire(request.url, response.headers.get('cache-control'));
     networkCache.put(request, response.clone());
     return response;
   }).catch(function() {
@@ -94,8 +83,7 @@ function addEventListeners() {
     event.waitUntil(
       Promise.all([
         getNetworkCache(),
-        getFallbackCache(),
-        getDB().ready
+        getFallbackCache()
       ]).then(function(caches) {
         return caches[0].addAll(precacheUrls);
       })
@@ -108,7 +96,6 @@ function addEventListeners() {
 
   self.addEventListener('fetch', function(event) {
     var request = event.request;
-    var idb = getDB();
 
     // Basic read-through caching.
     event.respondWith(
@@ -116,7 +103,7 @@ function addEventListeners() {
         return networkCache.match(request).then(function(response) {
           if (response) {
             console.log('  cache hit!');
-            return applyExpire(networkCache, request, response);
+            return checkExpire(networkCache, request, response);
           } else {
             // we didn't have it in the cache, so add it to the cache and return it
             console.log('  cache miss; attempting to fetch and cache at runtime...');
