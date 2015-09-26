@@ -40,6 +40,41 @@ function getFallbackCache() {
   return caches.open(fallbackCacheName);
 }
 
+function isExpired(response) {
+  var cacheControl = response.headers.get('cache-control');
+  var date = response.headers.get('date');
+  if(date){
+    var cachedDate = new Date(Date.parse(date));
+    var maxAge = parseInt(cacheHeader.match(/max-age=(\d+)/) || []).pop(), 10);
+  }
+  return maxAge && cachedDate.getTime() + maxAge * 1000 < new Date().getTime();
+}
+
+function checkExpire(cache, request, response) {
+  if(isExpired(response) {
+    cache.delete(request);
+    return fetchAndStore(request);
+  } else {
+    return response;
+  }
+}
+
+function fetchAndStore(request) {
+  return fetch(request.clone()).then(function(response) {
+    if (response.status >= 400) {
+      return Promise.reject(new Error(response.statusText));
+    }
+    console.log('  fetch successful.');
+    networkCache.put(request, response.clone());
+    return response;
+  }).catch(function() {
+    console.log('  fetch failed, trying the fallback cache.');
+    return getFallbackCache().then(function(fallbackCache) {
+      return fallbackCache.match(request);
+    });
+  });
+}
+
 function addEventListeners() {
   self.addEventListener('install', function(event) {
     // Pre-cache everything in precacheUrls, and wait until that's done to complete the install.
@@ -66,24 +101,11 @@ function addEventListeners() {
         return networkCache.match(request).then(function(response) {
           if (response) {
             console.log('  cache hit!');
-            return response;
+            return checkExpire(networkCache, request, response);
           } else {
             // we didn't have it in the cache, so add it to the cache and return it
             console.log('  cache miss; attempting to fetch and cache at runtime...');
-
-            return fetch(request.clone()).then(function(response) {
-              if (response.status >= 400) {
-                return Promise.reject(new Error(response.statusText));
-              }
-              console.log('  fetch successful.');
-              networkCache.put(request, response.clone());
-              return response;
-            }).catch(function() {
-              console.log('  fetch failed, trying the fallback cache.');
-              return getFallbackCache().then(function(fallbackCache) {
-                return fallbackCache.match(request);
-              });
-            });
+            return fetchAndStore(request);
           }
         });
       })
